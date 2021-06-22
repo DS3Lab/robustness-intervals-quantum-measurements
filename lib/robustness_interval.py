@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+from .helpers import make_paulicliques
 
 import tequila as tq
 
@@ -30,8 +31,11 @@ class RobustnessInterval:
     def compute_interval(self, backend, device, noise, samples):
 
         # extract pauli terms
-        pauli_strings = [ps.naked() for ps in self._hamiltonian.paulistrings]
-        pauli_coeffs = [ps.coeff.real for ps in self._hamiltonian.paulistrings]
+        #pauli_strings = [ps.naked() for ps in self._hamiltonian.paulistrings]
+        #pauli_coeffs = [ps.coeff.real for ps in self._hamiltonian.paulistrings]
+        paulicliques = make_paulicliques(self._hamiltonian)
+        pauli_strings = [ps.naked() for ps in paulicliques]
+        pauli_coeffs = [ps.coeff.real for ps in paulicliques]
 
         # finite sampling error (hoeffding)
         num_paulis = len(pauli_coeffs)
@@ -45,7 +49,7 @@ class RobustnessInterval:
             if str(p_str) == 'I' or len(p_str) == 0:
                 pauli_expec = 1.0
             else:
-                observable = tq.QubitHamiltonian.from_paulistrings([p_str])
+                observable = p_str.H
                 objective = tq.ExpectationValue(U=self._ansatz, H=observable)
                 pauli_expec = tq.simulate(objective, variables=self._variables, samples=samples, backend=backend, device=device, noise=noise)
                 pauli_expec = np.clip(pauli_expec, -1, 1)

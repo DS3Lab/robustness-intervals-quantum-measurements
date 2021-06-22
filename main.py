@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
 import os
+import multiprocessing as mp
 from psi4 import SCFConvergenceError
 
 import tequila as tq
@@ -95,6 +96,19 @@ def main():
     else:
         raise NotImplementedError('molecule {} not implemented!')
 
+    # qulacs backend uses multithreading
+    if args.backend in [None, "None", "qulacs"]:
+        omp_threads = os.getenv('OMP_NUM_THREADS')
+        if omp_threads is None:
+            # this means qulacs will grab all threads
+            omp_threads = mp.cpu_count()
+        else:
+            omp_threads = int(omp_threads)
+        num_processes = max(1,mp.cpu_count() - omp_threads)
+    else:
+        num_processes = 1
+    
+    bond_dists = sorted(bond_dists, key=lambda x: float(x))
     run_simulation(molecule_name=args.molecule,
                    initialize_molecule=init_mol,
                    optimizer=OPTIMIZER,
@@ -111,7 +125,8 @@ def main():
                    transformation=TRANSFORMATION,
                    n_pno=N_PNO,
                    n_reps=args.reps,
-                   random_dir=args.rand_dir)
+                   random_dir=args.rand_dir,
+                   num_processes=num_processes)
 
 
 if __name__ == '__main__':

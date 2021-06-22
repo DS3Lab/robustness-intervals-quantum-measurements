@@ -123,7 +123,7 @@ num_params\t: {len(ansatz.extract_variables())}
 
 def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances, ansatz_name, hcb, use_gpu, backend,
                    device, noise_id, samples, results_dir, basis_set, transformation, n_pno, n_reps=1,
-                   random_dir=False):
+                   random_dir=False, num_processes=None):
     if use_gpu:
         try:
             jax_config.update("jax_platform_name", "gpu")
@@ -215,7 +215,8 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
 
     del molecules
 
-    num_processes = min(len(bond_distances), mp.cpu_count()) + 2
+    if num_processes is None:
+        num_processes = min(len(bond_distances), mp.cpu_count()) + 2
 
     manager = mp.Manager()
     q = manager.Queue()
