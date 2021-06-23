@@ -83,11 +83,15 @@ class RobustnessInterval:
     def _compute_interval_single(pauli_string, pauli_expecation, fs_err, fidelity, min_eigenvalue, max_eigenvalue):
         if str(pauli_string) == 'I' or len(pauli_string) == 0:
             return 1.0, 1.0
+
         c = max_eigenvalue - min_eigenvalue
         d = min_eigenvalue
 
-        lower_bound = g(1.0 - (pauli_expecation - fs_err - d) / c, fidelity)
-        upper_bound = 1.0 - g((pauli_expecation + fs_err - d) / c, fidelity)
+        x_lower = np.clip((pauli_expecation - fs_err - d) / c, 0, 1)
+        x_upper = np.clip((pauli_expecation + fs_err - d) / c, 0, 1)
+
+        lower_bound = g(1.0 - x_lower, fidelity)
+        upper_bound = 1.0 - g(x_upper, fidelity)
         lower_bound = c * lower_bound + d
         upper_bound = c * upper_bound + d
 
