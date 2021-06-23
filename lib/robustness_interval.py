@@ -83,14 +83,12 @@ class RobustnessInterval:
             return 1.0, 1.0
         c = max_eigenvalue-min_eigenvalue
         d = min_eigenvalue
-        x = (pauli_expecation-d)/c
+        x = (pauli_expecation+fs_err-d)/c # @Maurice: Maybe check with the fs_err here
         
         lower_bound = g(1.0-x, fidelity)
         upper_bound = 1.0-g(x,fidelity)
         lower_bound = c*lower_bound + d
         upper_bound = c*upper_bound + d
-        #lower_bound = 2.0 * g((1.0 - pauli_expecation + fs_err) / 2.0, fidelity) - 1.0
-        #upper_bound = 1.0 - 2.0 * g((1.0 + pauli_expecation + fs_err) / 2.0, fidelity)
 
         return lower_bound, upper_bound
 

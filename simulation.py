@@ -191,7 +191,7 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
 
     # make psi4 calculations before multiprocessing
     bond_distances_final = []
-    fci_vals, mp2_vals, ccsd_vals = [], [], []
+    fci_vals, mp2_vals, ccsd_vals, hf_vals = [], [], [], []
     molecules = []
     ansatzes, hamiltonians = [], []
 
@@ -203,6 +203,7 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
             continue
 
         # make classical computations
+        hf_vals.append(compute_energy_classical('hf', molecule))  # noqa
         fci_vals.append(compute_energy_classical('fci', molecule))  # noqa
         mp2_vals.append(compute_energy_classical('mp2', molecule))  # noqa
         ccsd_vals.append(compute_energy_classical('ccsd', molecule))  # noqa
