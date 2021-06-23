@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+from .helpers import make_paulicliques
 
 import tequila as tq
 
@@ -27,12 +28,16 @@ class RobustnessInterval:
         self._upper = 0.0
         self._expectation = 0.0
 
-    def compute_interval(self, backend, device, noise, samples):
+    def compute_interval(self, backend, device, noise, samples, use_grouping):
 
         # extract pauli terms
-        pauli_strings = [ps.naked() for ps in self._hamiltonian.paulistrings]
-        pauli_coeffs = [ps.coeff.real for ps in self._hamiltonian.paulistrings]
-
+        if not use_grouping:
+            pauli_strings = [ps.naked() for ps in self._hamiltonian.paulistrings]
+            pauli_coeffs = [ps.coeff.real for ps in self._hamiltonian.paulistrings]
+        else:
+            paulicliques = make_paulicliques(self._hamiltonian)
+            pauli_strings = [ps.naked() for ps in paulicliques]
+            pauli_coeffs = [ps.coeff.real for ps in paulicliques]
         # finite sampling error (hoeffding)
         num_paulis = len(pauli_coeffs)
         if samples is None:
@@ -45,13 +50,27 @@ class RobustnessInterval:
             if str(p_str) == 'I' or len(p_str) == 0:
                 pauli_expec = 1.0
             else:
-                observable = tq.QubitHamiltonian.from_paulistrings([p_str])
-                objective = tq.ExpectationValue(U=self._ansatz, H=observable)
+                if hasattr(p_str, "H"):
+                    observable = p_str.H
+                else:
+                    observable = tq.QubitHamiltonian.from_paulistrings([p_str])
+                if hasattr(p_str, "U"):
+                    U = self._ansatz + p_str.U
+                else:
+                    U = self._ansatz
+                objective = tq.ExpectationValue(U=U, H=observable)
                 pauli_expec = tq.simulate(objective, variables=self._variables, samples=samples, backend=backend, device=device, noise=noise)
-                pauli_expec = np.clip(pauli_expec, -1, 1)
 
             # pauli bounds
-            lower_bound, upper_bound = self._compute_interval_single(p_str, pauli_expec, fs_err, self._fidelity)
+            min_eigenvalue=-1.0
+            max_eigenvalue=1.0
+            if hasattr(p_str, "compute_eigenvalues"):
+                ev = p_str.compute_eigenvalues()
+                min_eigenvalue=min(ev)
+                max_eigenvalue=max(ev)
+            pauli_expec = np.clip(pauli_expec, min_eigenvalue, max_eigenvalue)
+                
+            lower_bound, upper_bound = self._compute_interval_single(p_str, pauli_expec, fs_err, self._fidelity, min_eigenvalue, max_eigenvalue)
 
             # update total expectation
             self._expectation += p_coeff * pauli_expec
@@ -59,12 +78,17 @@ class RobustnessInterval:
             self._upper += p_coeff * upper_bound if p_coeff > 0 else p_coeff * lower_bound
 
     @staticmethod
-    def _compute_interval_single(pauli_string, pauli_expecation, fs_err, fidelity):
+    def _compute_interval_single(pauli_string, pauli_expecation, fs_err, fidelity, min_eigenvalue, max_eigenvalue):
         if str(pauli_string) == 'I' or len(pauli_string) == 0:
             return 1.0, 1.0
-
-        lower_bound = 2.0 * g((1.0 - pauli_expecation + fs_err) / 2.0, fidelity) - 1.0
-        upper_bound = 1.0 - 2.0 * g((1.0 + pauli_expecation + fs_err) / 2.0, fidelity)
+        c = max_eigenvalue-min_eigenvalue
+        d = min_eigenvalue
+        x = (pauli_expecation+fs_err-d)/c # @Maurice: Maybe check with the fs_err here
+        
+        lower_bound = g(1.0-x, fidelity)
+        upper_bound = 1.0-g(x,fidelity)
+        lower_bound = c*lower_bound + d
+        upper_bound = c*upper_bound + d
 
         return lower_bound, upper_bound
 

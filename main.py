@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
 import os
+import multiprocessing as mp
 from psi4 import SCFConvergenceError
 
 import tequila as tq
@@ -23,8 +24,9 @@ parser.add_argument("--backend", type=str, default="qulacs")
 parser.add_argument("--gpu", action="store_true")
 parser.add_argument("--reps", type=int, default=1)
 parser.add_argument("--rand_dir", action="store_true")
+parser.add_argument("--use_grouping", type=int, default=1, choices=[0,1])
 args = parser.parse_args()
-
+print("use_grouping=", args.use_grouping)
 TRANSFORMATION = 'JORDANWIGNER'
 N_PNO = None
 OPTIMIZER = 'BFGS'
@@ -95,6 +97,21 @@ def main():
     else:
         raise NotImplementedError('molecule {} not implemented!')
 
+    # qulacs backend uses multithreading
+    if args.backend in [None, "None", "qulacs"]:
+        omp_threads = os.getenv('OMP_NUM_THREADS')
+        if omp_threads is None:
+            # this means qulacs will grab all threads
+            omp_threads = mp.cpu_count()
+        else:
+            omp_threads = int(omp_threads)
+        num_processes = max(2,mp.cpu_count() - omp_threads)
+    else:
+        num_processes = 2
+    
+    bond_dists = sorted(bond_dists)
+    print(bond_dists)
+    print(num_processes)
     run_simulation(molecule_name=args.molecule,
                    initialize_molecule=init_mol,
                    optimizer=OPTIMIZER,
@@ -111,7 +128,9 @@ def main():
                    transformation=TRANSFORMATION,
                    n_pno=N_PNO,
                    n_reps=args.reps,
-                   random_dir=args.rand_dir)
+                   random_dir=args.rand_dir,
+                   num_processes=num_processes,
+                   use_grouping=args.use_grouping)
 
 
 if __name__ == '__main__':

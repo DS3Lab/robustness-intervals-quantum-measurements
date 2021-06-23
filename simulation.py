@@ -34,7 +34,7 @@ def listener(fn, q):
             f.flush()
 
 
-def worker(r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, fci, mp2, ccsd, n_reps, q):
+def worker(r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, fci, mp2, ccsd, n_reps, q, use_grouping):
     # TODO: save VQE params
 
     # run vqe
@@ -62,7 +62,7 @@ def worker(r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, f
 
     # compute robustness interval
     ri = RobustnessInterval(hamiltonian, ansatz, result.variables, fidelity, ALPHA)
-    ri.compute_interval(backend, device, noise, samples)
+    ri.compute_interval(backend, device, noise, samples, use_grouping=use_grouping)
 
     # compute trivial bounds: ± \sum_i |\omega_i| + const.
     constant_coeff = [ps.coeff.real for ps in hamiltonian.paulistrings if len(ps.naked()) == 0][0]
@@ -105,7 +105,11 @@ def build_ansatz(molecule, name):
     raise NotImplementedError(f'Ansatz {name} not known')
 
 
-def summarize_molecule(molecule, hamiltonian, ansatz):
+def summarize_molecule(molecule, hamiltonian, ansatz, use_grouping):
+    if use_grouping:
+        groups = tq.ExpectationValue(H=hamiltonian, U=tq.QCircuit(), optimize_measurements=True).count_expectationvalues()
+    else:
+        groups = len(hamiltonian)
     print(f"""---- molecule summary ----
 molecule: {molecule}
     
@@ -115,6 +119,7 @@ n_electrons\t: {molecule.n_electrons}
 Hamiltonian:
 num_terms\t: {len(hamiltonian)}
 num_qubits\t: {hamiltonian.n_qubits}
+pauli_groups\t: {groups}
     
 Ansatz:
 num_params\t: {len(ansatz.extract_variables())}
@@ -122,8 +127,8 @@ num_params\t: {len(ansatz.extract_variables())}
 
 
 def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances, ansatz_name, hcb, use_gpu, backend,
-                   device, noise_id, samples, results_dir, basis_set, transformation, n_pno, n_reps=1,
-                   random_dir=False):
+                   device, noise_id, samples, results_dir, basis_set, transformation, n_pno, use_grouping, n_reps=1,
+                   random_dir=False, num_processes=None):
     if use_gpu:
         try:
             jax_config.update("jax_platform_name", "gpu")
@@ -186,7 +191,7 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
 
     # make psi4 calculations before multiprocessing
     bond_distances_final = []
-    fci_vals, mp2_vals, ccsd_vals = [], [], []
+    fci_vals, mp2_vals, ccsd_vals, hf_vals = [], [], [], []
     molecules = []
     ansatzes, hamiltonians = [], []
 
@@ -198,6 +203,7 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
             continue
 
         # make classical computations
+        hf_vals.append(compute_energy_classical('hf', molecule))  # noqa
         fci_vals.append(compute_energy_classical('fci', molecule))  # noqa
         mp2_vals.append(compute_energy_classical('mp2', molecule))  # noqa
         ccsd_vals.append(compute_energy_classical('ccsd', molecule))  # noqa
@@ -211,11 +217,12 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
         bond_distances_final.append(r)
         molecules.append(molecule)
 
-    summarize_molecule(molecules[0], hamiltonians[0], ansatzes[0])
+    summarize_molecule(molecules[0], hamiltonians[0], ansatzes[0], use_grouping)
 
     del molecules
 
-    num_processes = min(len(bond_distances), mp.cpu_count()) + 2
+    if num_processes is None:
+        num_processes = min(len(bond_distances), mp.cpu_count()) + 2
 
     manager = mp.Manager()
     q = manager.Queue()
@@ -234,7 +241,7 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
                                                       fci_vals, mp2_vals, ccsd_vals):
         job = pool.apply_async(
             worker,
-            (r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, fci, mp2, ccsd, n_reps, q)
+            (r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, fci, mp2, ccsd, n_reps, q, use_grouping)
         )
 
         jobs.append(job)
