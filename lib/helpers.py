@@ -103,8 +103,9 @@ class PauliClique:
     class.U transforms into the eigenbasis where Op is diagonal
     """
 
-    def __init__(self, coeff, H, U):
+    def __init__(self, coeff, H, U, n_qubits):
         assert H.is_all_z()
+        self.n_qubits = n_qubits
         self.U = U
         self.paulistrings = H.paulistrings
         self.coeff = coeff
@@ -115,7 +116,7 @@ class PauliClique:
             The eigenvalues of the diagonal operator
         -------
         """
-        n_qubits = 8
+        n_qubits = self.n_qubits
         eig = np.asarray([0.0 for n in range(2 ** n_qubits)], dtype=float)
         for ps in self.paulistrings:
             x = np.asarray([1.0 for n in range(2 ** n_qubits)], dtype=int)
@@ -145,15 +146,14 @@ class PauliClique:
         lowest = eig[0]
         highest = eig[1]
         highest_abs = max([abs(lowest), abs(highest)])
-        if highest_abs < 1.0:
-            return self
         normalized_ps = []
         for ps in self.paulistrings:
             normalized_ps.append(tq.PauliString(coeff=ps.coeff/highest_abs, data=ps._data))
 
-        return PauliClique(coeff=self.coeff*highest_abs, H=tq.QubitHamiltonian.from_paulistrings(normalized_ps), U=self.U)
+        return PauliClique(coeff=self.coeff*highest_abs, H=tq.QubitHamiltonian.from_paulistrings(normalized_ps), U=self.U, n_qubits=self.n_qubits)
+    
     def naked(self):
-        return PauliClique(coeff=1.0, H=self.H, U=self.U)
+        return PauliClique(coeff=1.0, H=self.H, U=self.U, n_qubits=self.n_qubits)
 
     def __len__(self):
         return len(self.paulistrings)
@@ -167,5 +167,5 @@ def make_paulicliques(H):
     E = tq.ExpectationValue(H=H, U=tq.QCircuit(), optimize_measurements=True)
     result = []
     for clique in E.get_expectationvalues():
-        result.append(PauliClique(H=clique.H[0], U=clique.U, coeff=1.0).normalize())
+        result.append(PauliClique(H=clique.H[0], U=clique.U, coeff=1.0, n_qubits=H.n_qubits).normalize())
     return result
