@@ -144,7 +144,7 @@ class PauliClique:
 
         eig = self.compute_eigenvalues(sort=True)
         lowest = eig[0]
-        highest = eig[1]
+        highest = eig[-1]
         highest_abs = max([abs(lowest), abs(highest)])
         normalized_ps = []
         for ps in self.paulistrings:
@@ -167,5 +167,5 @@ def make_paulicliques(H):
     E = tq.ExpectationValue(H=H, U=tq.QCircuit(), optimize_measurements=True)
     result = []
     for clique in E.get_expectationvalues():
-        result.append(PauliClique(H=clique.H[0], U=clique.U, coeff=1.0, n_qubits=H.n_qubits).normalize())
+        result.append(PauliClique(H=clique.H[0], U=clique.U, coeff=1.0, n_qubits=H.n_qubits))
     return result

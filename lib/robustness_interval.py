@@ -60,7 +60,6 @@ class RobustnessInterval:
                     U = self._ansatz
                 objective = tq.ExpectationValue(U=U, H=observable)
                 pauli_expec = tq.simulate(objective, variables=self._variables, samples=samples, backend=backend, device=device, noise=noise)
-                pauli_expec = np.clip(pauli_expec, -1, 1)
 
             # pauli bounds
             min_eigenvalue=-1.0
@@ -68,7 +67,8 @@ class RobustnessInterval:
             if hasattr(p_str, "compute_eigenvalues"):
                 ev = p_str.compute_eigenvalues()
                 min_eigenvalue=min(ev)
-                max_eigenvalue-max(ev)
+                max_eigenvalue=max(ev)
+            pauli_expec = np.clip(pauli_expec, min_eigenvalue, max_eigenvalue)
                 
             lower_bound, upper_bound = self._compute_interval_single(p_str, pauli_expec, fs_err, self._fidelity, min_eigenvalue, max_eigenvalue)
 
@@ -78,13 +78,19 @@ class RobustnessInterval:
             self._upper += p_coeff * upper_bound if p_coeff > 0 else p_coeff * lower_bound
 
     @staticmethod
-    def _compute_interval_single(pauli_string, pauli_expecation, fs_err, fidelity, min_eigenvalue=-1.0, max_eigenvalue=1.0):
+    def _compute_interval_single(pauli_string, pauli_expecation, fs_err, fidelity, min_eigenvalue, max_eigenvalue):
         if str(pauli_string) == 'I' or len(pauli_string) == 0:
             return 1.0, 1.0
+        c = max_eigenvalue-min_eigenvalue
+        d = min_eigenvalue
+        x = (pauli_expecation-d)/c
         
-        distance = max_eigenvalue-min_eigenvalue
-        lower_bound = distance * g((abs(min_eigenvalue) - pauli_expecation + fs_err) / distance, fidelity) - min_eigenvalue
-        upper_bound = max_eigenvalue - distance * g((max_eigenvalue + pauli_expecation + fs_err) / distance, fidelity)
+        lower_bound = g(1.0-x, fidelity)
+        upper_bound = 1.0-g(x,fidelity)
+        lower_bound = c*lower_bound + d
+        upper_bound = c*upper_bound + d
+        #lower_bound = 2.0 * g((1.0 - pauli_expecation + fs_err) / 2.0, fidelity) - 1.0
+        #upper_bound = 1.0 - 2.0 * g((1.0 + pauli_expecation + fs_err) / 2.0, fidelity)
 
         return lower_bound, upper_bound
 
