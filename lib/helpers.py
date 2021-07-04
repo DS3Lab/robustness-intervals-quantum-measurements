@@ -2,6 +2,7 @@ import sys
 from datetime import datetime as dt
 import numpy as np
 import os
+from psi4 import SCFConvergenceError
 
 import tequila as tq
 
@@ -94,6 +95,7 @@ def filtered_dists(data_dir, mol_str):
 
     return dists
 
+
 class PauliClique:
     """
     Small Helper Class for cliques of computing Pauli operators
@@ -148,10 +150,11 @@ class PauliClique:
         highest_abs = max([abs(lowest), abs(highest)])
         normalized_ps = []
         for ps in self.paulistrings:
-            normalized_ps.append(tq.PauliString(coeff=ps.coeff/highest_abs, data=ps._data))
+            normalized_ps.append(tq.PauliString(coeff=ps.coeff / highest_abs, data=ps._data))
 
-        return PauliClique(coeff=self.coeff*highest_abs, H=tq.QubitHamiltonian.from_paulistrings(normalized_ps), U=self.U, n_qubits=self.n_qubits)
-    
+        return PauliClique(coeff=self.coeff * highest_abs, H=tq.QubitHamiltonian.from_paulistrings(normalized_ps),
+                           U=self.U, n_qubits=self.n_qubits)
+
     def naked(self):
         return PauliClique(coeff=1.0, H=self.H, U=self.U, n_qubits=self.n_qubits)
 
@@ -169,3 +172,62 @@ def make_paulicliques(H):
     for clique in E.get_expectationvalues():
         result.append(PauliClique(H=clique.H[0], U=clique.U, coeff=1.0, n_qubits=H.n_qubits))
     return result
+
+
+def initialize_molecule(r, geometry, name, basis_set, active_orbitals, transformation, n_pno):
+    try:
+        if basis_set is None:
+            return tq.Molecule(geometry=geometry.format(r=r),
+                               basis_set=basis_set,
+                               transformation=transformation,
+                               name=name.format(r=r),
+                               n_pno=n_pno)
+        else:
+            return tq.Molecule(geometry=geometry.format(r=r),
+                               basis_set=basis_set,
+                               active_orbitals=active_orbitals,
+                               transformation=transformation,
+                               name=name.format(r=r),
+                               n_pno=n_pno)
+
+    except SCFConvergenceError:
+        print('WARNING! could not intialize molecule with bond distance {r}'.format(r=r))
+        return None
+
+
+def get_molecule_initializer(geometry, active_orbitals):
+    def initializer(r, name, basis_set, transformation, n_pno):
+        return initialize_molecule(r, geometry, name, basis_set, active_orbitals, transformation, n_pno)
+
+    return initializer
+
+
+def print_summary(molecule, hamiltonian, ansatz, use_grouping):
+    if use_grouping:
+        groups = tq.ExpectationValue(H=hamiltonian, U=tq.QCircuit(),
+                                     optimize_measurements=True).count_expectationvalues()
+    else:
+        groups = len(hamiltonian)
+
+    print(f"""---- molecule summary ----
+molecule: {molecule}
+    
+n_orbitals\t: {molecule.n_orbitals}
+n_electrons\t: {molecule.n_electrons}
+    
+Hamiltonian:
+num_terms\t: {len(hamiltonian)}
+num_qubits\t: {hamiltonian.n_qubits}
+pauli_groups\t: {groups}
+use_grouping\t: {use_grouping}
+    
+Ansatz:
+num_params\t: {len(ansatz.extract_variables())}
+    """)
+
+
+def compute_energy_classical(method, molecule):
+    try:
+        return molecule.compute_energy(method)
+    except Exception:  # noqa
+        return np.nan

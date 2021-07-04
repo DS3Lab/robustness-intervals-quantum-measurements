@@ -8,10 +8,11 @@ import numpy as np
 import os
 from jax.config import config as jax_config
 import sys
+import warnings
 
 import tequila as tq
 
-from lib.robustness_interval import RobustnessInterval
+from lib.robustness_interval import EigenvalueInterval, ExpectationInterval
 from lib.helpers import timestamp_human, timestamp, estimate_fidelity, Logger
 from lib.noise_models import get_noise_model
 from constants import DATA_DIR
@@ -34,7 +35,8 @@ def listener(fn, q):
             f.flush()
 
 
-def worker(r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, fci, mp2, ccsd, n_reps, q, use_grouping):
+def worker(r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, fci, mp2, ccsd, n_reps, q, use_grouping,
+           normalize_hamiltonian):
     # TODO: save VQE params
 
     # run vqe
@@ -60,16 +62,34 @@ def worker(r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, f
     # compute fidelity
     fidelity = estimate_fidelity(eigenvalues, eigenstates, ansatz, result.variables, backend, device, noise, samples)
 
-    # compute robustness interval
-    ri = RobustnessInterval(hamiltonian, ansatz, result.variables, fidelity, ALPHA)
-    ri.compute_interval(backend, device, noise, samples, use_grouping=use_grouping)
-
-    # compute trivial bounds: ± \sum_i |\omega_i| + const.
+    # compute robustness intervals
     constant_coeff = [ps.coeff.real for ps in hamiltonian.paulistrings if len(ps.naked()) == 0][0]
-    trivial_bound0 = np.sum(np.abs([ps.coeff.real for ps in hamiltonian.paulistrings if len(ps) != 0]))
-    trivial_bounds = constant_coeff - trivial_bound0, constant_coeff + trivial_bound0
+    normalization_constants = {
+        'lower': constant_coeff - sum([abs(ps.coeff.real) for ps in hamiltonian.paulistrings if len(ps.naked()) > 0]),
+        'upper': constant_coeff + sum([abs(ps.coeff.real) for ps in hamiltonian.paulistrings if len(ps.naked()) > 0])
+    }
 
-    data = [r, exact, fci, mp2, ccsd, ri.expectation, ri.lower, ri.upper, fidelity, *trivial_bounds]
+    # based on first moment
+    expec1_interval = ExpectationInterval(hamiltonian, ansatz)
+    expec1_interval.compute_interval(
+        result.variables, backend, device, noise, samples, fidelity, use_grouping=use_grouping,
+        use_second_moment=False, normalization_constants=normalization_constants if normalize_hamiltonian else None)
+
+    # based on second moment
+    expec2_interval = ExpectationInterval(hamiltonian, ansatz)
+    expec2_interval.compute_interval(
+        result.variables, backend, device, noise, samples, fidelity, use_grouping=use_grouping,
+        use_second_moment=True, normalization_constants=normalization_constants)
+
+    # Eigenvalue interval
+    eigen_interval = EigenvalueInterval(hamiltonian, ansatz)
+    eigen_interval.compute_interval(result.variables, backend, device, noise, samples, fidelity)
+
+    data = [r, exact, fci, mp2, ccsd, result.energy,
+            eigen_interval.lower_bound, eigen_interval.upper_bound,
+            expec1_interval.lower_bound, expec1_interval.upper_bound,
+            expec2_interval.lower_bound, expec2_interval.upper_bound,
+            fidelity, eigen_interval.variance]
 
     q.put(data)
 
@@ -107,7 +127,8 @@ def build_ansatz(molecule, name):
 
 def summarize_molecule(molecule, hamiltonian, ansatz, use_grouping):
     if use_grouping:
-        groups = tq.ExpectationValue(H=hamiltonian, U=tq.QCircuit(), optimize_measurements=True).count_expectationvalues()
+        groups = tq.ExpectationValue(H=hamiltonian, U=tq.QCircuit(),
+                                     optimize_measurements=True).count_expectationvalues()
     else:
         groups = len(hamiltonian)
     print(f"""---- molecule summary ----
@@ -127,8 +148,8 @@ num_params\t: {len(ansatz.extract_variables())}
 
 
 def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances, ansatz_name, hcb, use_gpu, backend,
-                   device, noise_id, samples, results_dir, basis_set, transformation, n_pno, use_grouping, n_reps=1,
-                   random_dir=False, num_processes=None):
+                   device, noise_id, samples, results_dir, basis_set, transformation, n_pno, use_grouping,
+                   normalize_hamiltonian, n_reps=1, random_dir=False, num_processes=None):
     if use_gpu:
         try:
             jax_config.update("jax_platform_name", "gpu")
@@ -158,7 +179,9 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
     save_dir = os.path.join(results_dir, f"./{molecule_name}/")
     save_dir = os.path.join(save_dir, f"{'basis-set-free' if basis_set is None else basis_set}/")
     save_dir = os.path.join(save_dir, f"hcb={hcb}/{ansatz_name}/")
-    save_dir = os.path.join(save_dir, f"noise={noise_id if device is None else device}")
+    save_dir = os.path.join(save_dir, f"noise={noise_id if device is None else device}/")
+    save_dir = os.path.join(save_dir, f"use_grouping={use_grouping}/")
+    save_dir = os.path.join(save_dir, f"normalize_hamiltonian={normalize_hamiltonian}/")
 
     if random_dir:
         save_dir = os.path.join(save_dir, f"{timestamp()}")
@@ -172,8 +195,8 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
     # initialize csv
     with open(csv_fp, "w") as csv_file:
         csv_writer = csv.writer(csv_file, delimiter=",")
-        header = ["r", "exact", "fci", "mp2", "ccsd", "vqe", "lower_bound", "upper_bound", "fidelity", "lower_bound0",
-                  "upper_bound0"]
+        header = ["r", "exact", "fci", "mp2", "ccsd", "vqe", "eig_lower", "eig_upper", "1st_lower", "1st_upper",
+                  "2nd_lower", "2nd_upper", "fidelity", "variance"]
         csv_writer.writerow(header)
 
     # save terminal output to file
@@ -231,6 +254,8 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
     # put listener to work first
     _ = pool.apply_async(listener, (csv_fp, q))
 
+    print(f'start_time\t: {timestamp_human()}')
+
     # print progress header
     print("\n{:^14} | ".format("time") + " | ".join(["{:^12}".format(v) for v in header]))
     print("-" * 15 + "+" + "+".join(["-" * 14 for _ in range(len(header))]))
@@ -241,8 +266,8 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
                                                       fci_vals, mp2_vals, ccsd_vals):
         job = pool.apply_async(
             worker,
-            (r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, fci, mp2, ccsd, n_reps, q, use_grouping)
-        )
+            (r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, fci, mp2, ccsd, n_reps, q,
+             use_grouping, normalize_hamiltonian))
 
         jobs.append(job)
 
@@ -254,4 +279,5 @@ def run_simulation(molecule_name, initialize_molecule, optimizer, bond_distances
     pool.close()
     pool.join()
 
-    print('total time elapsed: {:.6f}'.format(time.time() - start_time))
+    print(f'\nend_time\t: {timestamp_human()}')
+    print(f'elapsed_time\t: {time.time() - start_time:.4f}s')

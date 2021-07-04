@@ -19,12 +19,13 @@ parser.add_argument("--hcb", action="store_true")
 parser.add_argument("--noise", type=int, default=0, choices=[0, 1, 2])
 parser.add_argument("--samples", "-s", type=int, default=None)
 parser.add_argument("--device", type=str, default=None)
-parser.add_argument("--results_dir", type=str, default=os.path.join(ROOT_DIR, "results/"))
+parser.add_argument("--results_dir", type=str, default=os.path.join(ROOT_DIR, "../results/"))
 parser.add_argument("--backend", type=str, default="qulacs")
 parser.add_argument("--gpu", action="store_true")
 parser.add_argument("--reps", type=int, default=1)
 parser.add_argument("--rand_dir", action="store_true")
-parser.add_argument("--use_grouping", type=int, default=1, choices=[0,1])
+parser.add_argument("--use_grouping", type=int, default=1, choices=[0, 1])
+parser.add_argument("--normalize_hamiltonian", type=int, default=0, choices=[0, 1])
 args = parser.parse_args()
 print("use_grouping=", args.use_grouping)
 TRANSFORMATION = 'JORDANWIGNER'
@@ -105,10 +106,15 @@ def main():
             omp_threads = mp.cpu_count()
         else:
             omp_threads = int(omp_threads)
-        num_processes = max(2,mp.cpu_count() - omp_threads)
+        num_processes = max(2, mp.cpu_count() - omp_threads)
     else:
-        num_processes = 2
-    
+        num_processes = None
+
+    num_processes = None
+
+    if args.samples is not None:
+        print('Caution! Finite sampling error not yet factored in for variance based intervals!')
+
     bond_dists = sorted(bond_dists)
     print(bond_dists)
     print(num_processes)
@@ -130,7 +136,8 @@ def main():
                    n_reps=args.reps,
                    random_dir=args.rand_dir,
                    num_processes=num_processes,
-                   use_grouping=args.use_grouping)
+                   use_grouping=args.use_grouping,
+                   normalize_hamiltonian=args.normalize_hamiltonian)
 
 
 if __name__ == '__main__':
