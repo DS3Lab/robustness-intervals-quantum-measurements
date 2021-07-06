@@ -26,9 +26,9 @@ class RobustnessInterval(ABC):
         self._variance = np.nan
         self._fidelity = np.nan
 
-        # confidence intervals for finite sampling
-        self._lower_bound_ci = np.nan, np.nan
-        self._upper_bound_ci = np.nan, np.nan
+        # one sided confidence intervals for finite sampling
+        self._lower_bound_ci = np.nan
+        self._upper_bound_ci = np.nan
 
     @abstractmethod
     def compute_interval(self, variables, backend, device, noise, samples, fidelity=None, alpha=1e-2, nreps=30):
@@ -124,19 +124,22 @@ class EigenvalueInterval(RobustnessInterval):
 
             # compute lower bound
             self._lower_bound = self._expectation - np.sqrt(self._variance) * np.sqrt((1.0 - fidelity) / fidelity)
+            self._lower_bound_ci = self._lower_bound
 
             # compute upper bound
             self._upper_bound = self._expectation + np.sqrt(self._variance) * np.sqrt((1.0 - fidelity) / fidelity)
+            self._upper_bound_ci = self._upper_bound
 
             return
 
         # finite sampling: estimate nreps times and average, compute confidence interval
         expectations_sampled, variances_sampled = [], []
 
-        for _ in range(nreps):
+        for i in range(nreps):
             e, v = self._compute_expectation_and_variance(variables, samples, backend, device, noise)
             expectations_sampled.append(e)
             variances_sampled.append(v)
+            print(f'{i + 1}/{nreps} reps completed.')
 
         lower_bounds = [e - np.sqrt(v) * np.sqrt((1.0 - fidelity) / fidelity) for e, v in zip(expectations_sampled,
                                                                                               variances_sampled)]
@@ -153,14 +156,12 @@ class EigenvalueInterval(RobustnessInterval):
         lower_bound_variance = np.var(lower_bounds, ddof=1, dtype=np.float64)
         upper_bound_variance = np.var(upper_bounds, ddof=1, dtype=np.float64)
 
-        # calculate confidence intervals
+        # calculate one sided confidence intervals
         self._lower_bound_ci = (
-            self._lower_bound - np.sqrt(lower_bound_variance / nreps) * stats.t.ppf(q=1 - alpha / 2.0, df=nreps - 1),
-            self._lower_bound + np.sqrt(lower_bound_variance / nreps) * stats.t.ppf(q=1 - alpha / 2.0, df=nreps - 1))
+                self._lower_bound - np.sqrt(lower_bound_variance / nreps) * stats.t.ppf(q=1 - alpha, df=nreps - 1))
 
         self._upper_bound_ci = (
-            self._upper_bound - np.sqrt(upper_bound_variance / nreps) * stats.t.ppf(q=1 - alpha / 2.0, df=nreps - 1),
-            self._upper_bound + np.sqrt(upper_bound_variance / nreps) * stats.t.ppf(q=1 - alpha / 2.0, df=nreps - 1))
+                self._upper_bound + np.sqrt(upper_bound_variance / nreps) * stats.t.ppf(q=1 - alpha, df=nreps - 1))
 
 
 class ExpectationInterval(RobustnessInterval):
@@ -185,39 +186,40 @@ class ExpectationInterval(RobustnessInterval):
             self._fidelity = 0.0
 
         if normalization_constants is not None:
-            # compute interval directly based on Theorem 1
-            upper_const = normalization_constants['upper']
-            lower_const = normalization_constants['lower']
-
-            # compute expectation
-            objective = tq.ExpectationValue(U=self._ansatz, H=self._observable)
-            expectation = tq.simulate(objective, variables=variables, samples=samples, backend=backend,  # noqa
-                                      device=device, noise=noise)
-
-            if samples is None:
-                expectation_lower_bound = expectation_upper_bound = expectation
-            else:
-                # finite sampling error
-                # TODO: account for finite sampling errors or make multiple reps
-                expectation_lower_bound = expectation_upper_bound = expectation
-
-            self._expectation = expectation
-
-            if fidelity < (upper_const - expectation) / (upper_const - lower_const):
-                self._lower_bound = lower_const
-            else:
-                self._lower_bound = lower_const + (
-                        np.sqrt(self._fidelity) * np.sqrt(expectation_lower_bound - lower_const)
-                        - np.sqrt(1 - self._fidelity) * np.sqrt(upper_const - expectation_lower_bound)) ** 2
-
-            if fidelity < (expectation_upper_bound - lower_const) / (upper_const - lower_const):
-                self._upper_bound = upper_const
-            else:
-                self._upper_bound = lower_const + (
-                        np.sqrt(1 - self._fidelity) * np.sqrt(expectation_upper_bound - lower_const)
-                        - np.sqrt(self._fidelity) * np.sqrt(upper_const - expectation_upper_bound)) ** 2
-
-            return
+            raise NotImplementedError
+            # # compute interval directly based on Theorem 1
+            # upper_const = normalization_constants['upper']
+            # lower_const = normalization_constants['lower']
+            #
+            # # compute expectation
+            # objective = tq.ExpectationValue(U=self._ansatz, H=self._observable)
+            # expectation = tq.simulate(objective, variables=variables, samples=samples, backend=backend,  # noqa
+            #                           device=device, noise=noise)
+            #
+            # if samples is None:
+            #     expectation_lower_bound = expectation_upper_bound = expectation
+            # else:
+            #     # finite sampling error
+            #     # TODO: account for finite sampling errors or make multiple reps
+            #     expectation_lower_bound = expectation_upper_bound = expectation
+            #
+            # self._expectation = expectation
+            #
+            # if fidelity < (upper_const - expectation) / (upper_const - lower_const):
+            #     self._lower_bound = lower_const
+            # else:
+            #     self._lower_bound = lower_const + (
+            #             np.sqrt(self._fidelity) * np.sqrt(expectation_lower_bound - lower_const)
+            #             - np.sqrt(1 - self._fidelity) * np.sqrt(upper_const - expectation_lower_bound)) ** 2
+            #
+            # if fidelity < (expectation_upper_bound - lower_const) / (upper_const - lower_const):
+            #     self._upper_bound = upper_const
+            # else:
+            #     self._upper_bound = lower_const + (
+            #             np.sqrt(1 - self._fidelity) * np.sqrt(expectation_upper_bound - lower_const)
+            #             - np.sqrt(self._fidelity) * np.sqrt(upper_const - expectation_upper_bound)) ** 2
+            #
+            # return
 
         # if no normalization constants are provided, we compute the robustness interval based on the pauli terms
         self._lower_bound = 0
@@ -315,15 +317,17 @@ class ExpectationInterval(RobustnessInterval):
                     max(0, np.sqrt(fidelity * (expectation - lower_const)
                                    - np.sqrt((1 - fidelity) * self._variance / (expectation - lower_const))))) ** 2
 
+                self._lower_bound_ci = self._lower_bound
                 return
 
             # finite sampling: estimate nreps time and average, compute confidence interval
             expectations_sampled, variances_sampled = [], []
 
-            for _ in range(nreps):
+            for i in range(nreps):
                 e, v = self._compute_expectation_and_variance(variables, samples, backend, device, noise)
                 expectations_sampled.append(e)
                 variances_sampled.append(v)
+                print(f'{i + 1}/{nreps} reps completed.')
 
             lower_bounds = [lower_const + (
                 max(0, np.sqrt(fidelity * (e - lower_const) - np.sqrt((1 - fidelity) * v / (e - lower_const))))) ** 2
@@ -337,12 +341,9 @@ class ExpectationInterval(RobustnessInterval):
             # calculate sample variance
             lower_bound_variance = np.var(lower_bounds, ddof=1, dtype=np.float64)
 
-            # calculate confidence intervals
+            # calculate one-sided confidence interval
             self._lower_bound_ci = (
-                self._lower_bound - np.sqrt(lower_bound_variance / nreps) * stats.t.ppf(q=1 - alpha,
-                                                                                         df=nreps - 1),
-                self._lower_bound + np.sqrt(lower_bound_variance / nreps) * stats.t.ppf(q=1 - alpha,
-                                                                                         df=nreps - 1))
+                    self._lower_bound - np.sqrt(lower_bound_variance / nreps) * stats.t.ppf(q=1 - alpha, df=nreps - 1))
 
             return
 

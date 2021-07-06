@@ -8,7 +8,6 @@ import numpy as np
 import os
 from jax.config import config as jax_config
 import sys
-import warnings
 
 import tequila as tq
 

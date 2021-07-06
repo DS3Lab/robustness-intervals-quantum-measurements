@@ -99,6 +99,7 @@ def worker(r, ansatz, hamiltonian, backend, device, noise, samples, fidelity, ex
     first_moment_interval.compute_interval(
         vqe.variables, backend, device, noise, samples, fidelity, use_grouping=use_grouping,
         use_second_moment=False, normalization_constants=None)
+    print(f'finished first moment based interval for r={r}')
 
     # compute interval based on second moment
     constant_coeff = [ps.coeff.real for ps in hamiltonian.paulistrings if len(ps.naked()) == 0][0]
@@ -110,17 +111,20 @@ def worker(r, ansatz, hamiltonian, backend, device, noise, samples, fidelity, ex
     second_moment_interval.compute_interval(
         vqe.variables, backend, device, noise, samples, fidelity, use_grouping=use_grouping,
         use_second_moment=True, normalization_constants=normalization_constants, nreps=nreps)
+    print(f'finished second moment based interval for r={r}')
 
     # compute eigenvalue interval
     eigen_interval = EigenvalueInterval(hamiltonian, ansatz)
     eigen_interval.compute_interval(vqe.variables, backend, device, noise, samples, fidelity, nreps=nreps)
+    print(f'finished eigenvalue interval for r={r}')
     print(f'finished interval calculations for r={r}...')
 
     # put data in queue
     data = {'ref_values': [r, exact, vqe.energy, fidelity],
             'eigen_interval': eigen_interval,
             'first_moment_interval': first_moment_interval,
-            'second_moment_interval': second_moment_interval}
+            'second_moment_interval': second_moment_interval
+            }
 
     q.put(data)
 
@@ -133,6 +137,9 @@ def main(results_dir, molecule_name, use_grouping, nreps, samples=None):
 
     if samples is not None and loaded_args.samples is not None:
         loaded_args.samples = samples
+
+    if f'/{molecule_name.lower()}/' not in results_dir:
+        raise ValueError(f'molecule_name {molecule_name.lower()} not in results_dir\n\t{results_dir} !')
 
     ansatz_name = loaded_args.ansatz
     result_df = pd.read_pickle(os.path.join(results_dir, 'energies.pkl'))

@@ -83,7 +83,7 @@ def get_noise_model(noise_model_name_or_id) -> Union[NoiseModel, str] or None:
     if noise_model_name_or_id.lower() in [COMPOSED_BITFLIP_DEPOLARIZING, "1"]:
         composed = ComposedNoiseModel(noise_model_name=COMPOSED_BITFLIP_DEPOLARIZING,
                                       noise_configs=[NoiseConfig(name='bit_flip', p=1e-2, level=1),
-                                                     NoiseConfig(name='depolarizing', p=1e-3, level=2)])
+                                                     NoiseConfig(name='depolarizing', p=1e-2, level=2)])
         return composed.noise_model
 
     if noise_model_name_or_id.lower() in [COMPOSED_TWO_BITFLIPS, "2"]:
