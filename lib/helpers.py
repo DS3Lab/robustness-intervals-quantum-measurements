@@ -15,8 +15,8 @@ def timestamp_human():
     return dt.now().strftime('%H:%M:%S')
 
 
-def estimate_fidelity(eigenvalues, eigenstates, ansatz, variables, backend, device=None, noise=None, samples=None,
-                      tol=2 * 1.5e-3):
+def estimate_ground_state_fidelity(eigenvalues, eigenstates, ansatz, variables, backend, device=None, noise=None, samples=None,
+                                   tol=2 * 1.5e-3):
     fidelities = []
 
     # sort eigenvalues
@@ -203,11 +203,9 @@ def get_molecule_initializer(geometry, active_orbitals):
 
 
 def print_summary(molecule, hamiltonian, ansatz, use_grouping):
-    if use_grouping:
-        groups = tq.ExpectationValue(H=hamiltonian, U=tq.QCircuit(),
-                                     optimize_measurements=True).count_expectationvalues()
-    else:
-        groups = len(hamiltonian)
+
+    pauli_terms_with_grouping = tq.ExpectationValue(H=hamiltonian, U=tq.QCircuit(),
+                                                    optimize_measurements=True).count_expectationvalues()
 
     print(f"""---- molecule summary ----
 molecule: {molecule}
@@ -218,7 +216,7 @@ n_electrons\t: {molecule.n_electrons}
 Hamiltonian:
 num_terms\t: {len(hamiltonian)}
 num_qubits\t: {hamiltonian.n_qubits}
-pauli_groups\t: {groups}
+pauli_groups\t: {pauli_terms_with_grouping}
 use_grouping\t: {use_grouping}
     
 Ansatz:

@@ -14,13 +14,13 @@ import tequila as tq  # noqa
 
 from constants import ROOT_DIR, DATA_DIR
 from lib.vqe import make_ansatz
-from lib.helpers import filtered_dists, get_molecule_initializer, estimate_fidelity, compute_energy_classical
+from lib.helpers import filtered_dists, get_molecule_initializer, compute_energy_classical
 from lib.helpers import print_summary, timestamp_human, timestamp, Logger
 from lib.noise_models import get_noise_model
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--molecule", type=str, choices=['h2', 'lih', 'beh2'])
-parser.add_argument("--ansatz", type=str, choices=['upccgsd', 'spa-gas', 'spa-gs', 'spa-s', 'spa'])
+parser.add_argument("--ansatz", type=str, required=True, choices=['upccgsd', 'spa-gas', 'spa-gs', 'spa-s', 'spa'])
 parser.add_argument("--basis_set", "-bs", type=str, default=None)
 parser.add_argument("--hcb", action="store_true")
 parser.add_argument("--noise", type=int, default=0, choices=[0, 1, 2])
@@ -48,7 +48,7 @@ active_orbitals = {
     'beh2': None
 }
 
-columns = ["r", "exact", "fci", "mp2", "ccsd", "vqe", "gs_fidelity"]
+columns = ["r", "fci", "mp2", "ccsd", "vqe"]
 
 
 def listener(q, df_save_as):
@@ -91,16 +91,8 @@ def worker(r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, f
     with open(vqe_fn.format(r=r), 'wb') as f:
         pickle.dump(result, f)
 
-    # compute exact solution
-    hamiltonian_matrix = hamiltonian.to_matrix()  # noqa
-    eigenvalues, eigenstates = np.linalg.eigh(hamiltonian_matrix)
-    exact = min(eigenvalues)
-
-    # compute fidelity
-    fidelity = estimate_fidelity(eigenvalues, eigenstates, ansatz, result.variables, backend, device, noise, samples)
-
     # put data in queue
-    q.put([r, exact, fci, mp2, ccsd, result.energy, fidelity])
+    q.put([r, fci, mp2, ccsd, result.energy])
 
 
 def main():
@@ -202,7 +194,7 @@ def main():
         bond_distances_final.append(r)
         molecules.append(molecule)
 
-    print_summary(molecules[0], hamiltonians[0], ansatzes[0], True)
+    print_summary(molecules[0], hamiltonians[0], ansatzes[0], None)
 
     del molecules
 

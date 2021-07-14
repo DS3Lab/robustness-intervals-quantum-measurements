@@ -11,8 +11,8 @@ import sys
 
 import tequila as tq
 
-from lib.robustness_interval import EigenvalueInterval, ExpectationInterval
-from lib.helpers import timestamp_human, timestamp, estimate_fidelity, Logger
+from old.robustness_interval import EigenvalueInterval, ExpectationInterval
+from lib.helpers import timestamp_human, timestamp, estimate_ground_state_fidelity, Logger
 from lib.noise_models import get_noise_model
 from constants import DATA_DIR
 
@@ -59,7 +59,7 @@ def worker(r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, f
     exact = min(eigenvalues)
 
     # compute fidelity
-    fidelity = estimate_fidelity(eigenvalues, eigenstates, ansatz, result.variables, backend, device, noise, samples)
+    fidelity = estimate_ground_state_fidelity(eigenvalues, eigenstates, ansatz, result.variables, backend, device, noise, samples)
 
     # compute robustness intervals
     constant_coeff = [ps.coeff.real for ps in hamiltonian.paulistrings if len(ps.naked()) == 0][0]

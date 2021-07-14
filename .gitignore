@@ -5,3 +5,4 @@ __pycache__/
 *.dat
 .ipynb_checkpoints/
 data/
+analyze/plots
