@@ -27,7 +27,7 @@ parser.add_argument("--noise", type=int, default=0, choices=[0, 1, 2])
 parser.add_argument("--samples", "-s", type=int, default=None)
 parser.add_argument("--device", type=str, default=None)
 parser.add_argument("--results_dir", type=str, default=os.path.join(ROOT_DIR, "results/"))
-parser.add_argument("--optimizer", type=str, default='BFGS')
+parser.add_argument("--optimizer", type=str, default='COBYLA')
 parser.add_argument("--backend", type=str, default="qulacs")
 parser.add_argument("--gpu", action="store_true")
 parser.add_argument("--restarts", type=int, default=1)
@@ -73,7 +73,7 @@ def listener(q, df_save_as):
 
 def worker(r, ansatz, hamiltonian, optimizer, backend, device, noise, samples, fci, mp2, ccsd, restarts, vqe_fn, q):
     # run vqe
-    objective = tq.ExpectationValue(U=ansatz, H=hamiltonian, optimize_measurements=True)
+    objective = tq.ExpectationValue(U=ansatz, H=hamiltonian, optimize_measurements=False)
 
     Result = namedtuple('result', 'energy')
     result = Result(energy=np.inf)

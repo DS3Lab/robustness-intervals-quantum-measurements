@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 import seaborn as sns
 
-from lib.robustness_interval import GramianEigenvalueInterval
+from lib.robustness_interval import SDPInterval
 
 font_size = 14
 font_size_large = 18
@@ -40,15 +40,33 @@ def lower_bounds_plots(results_dir_noisy, results_dir_noiseless, vqe_label, err_
     for noisy and noiseless vqe
 
     """
+    fp = os.path.join(results_dir_noiseless, 'pauli_statistics.pkl')
     try:
-        stats_df_noiseless = pd.read_pickle(os.path.join(results_dir_noiseless, 'statistics.pkl'))
+        stats_df_noiseless = pd.read_pickle(fp)
     except FileNotFoundError:
+        print(f'could not  find {fp}')
         stats_df_noiseless = None
 
+    fp_h = os.path.join(results_dir_noiseless, 'hamiltonian_statistics.pkl')
     try:
-        stats_df_noisy = pd.read_pickle(os.path.join(results_dir_noisy, 'statistics.pkl'))
+        hamiltonian_stats_df_noiseless = pd.read_pickle(fp_h)
     except FileNotFoundError:
+        print(f'could not  find {fp_h}')
+        hamiltonian_stats_df_noiseless = None
+
+    fp = os.path.join(results_dir_noisy, 'pauli_statistics.pkl')
+    try:
+        stats_df_noisy = pd.read_pickle(fp)
+    except FileNotFoundError:
+        print(f'could not  find {fp}')
         stats_df_noisy = None
+
+    fp_h = os.path.join(results_dir_noisy, 'hamiltonian_statistics.pkl')
+    try:
+        hamiltonian_stats_df_noisy = pd.read_pickle(fp_h)
+    except FileNotFoundError:
+        print(f'could not  find {fp_h}')
+        hamiltonian_stats_df_noisy = None
 
     if stats_df_noisy is None and stats_df_noiseless is None:
         raise FileNotFoundError('no data found')
@@ -65,19 +83,21 @@ def lower_bounds_plots(results_dir_noisy, results_dir_noiseless, vqe_label, err_
     plot_df_noisy = pd.DataFrame(
         columns=['r', 'exact', 'vqe_energy', 'fidelity', 'lower_bounds', 'upper_bounds'])
 
-    # compute gramian eigenvalue intervals without noise
+    # compute intervals without noise
     for r in stats_df_noiseless.index:
-        vqe_energy = np.mean(stats_df_noiseless.loc[r]['expectation_values_hamiltonian'])
+        vqe_energy = np.mean(hamiltonian_stats_df_noiseless.loc[r]['expectation_values_hamiltonian'])
         true_fidelity = stats_df_noiseless.loc[r]['gs_fidelity']
 
         data = [r, stats_df_noiseless.loc[r]['E0'], vqe_energy, true_fidelity]
 
         # stats to compute bounds
-        statistics = {'expectation_values': stats_df_noiseless.loc[r]['expectation_values_hamiltonian'],
-                      'variances': stats_df_noiseless.loc[r]['variances_hamiltonian']}
+        statistics = {'expectation_values': stats_df_noiseless.loc[r]['grouped_pauli_expectations'],
+                      'pauli_strings': stats_df_noiseless.loc[r]['grouped_pauli_strings'],
+                      'pauli_coeffs': stats_df_noiseless.loc[r]['grouped_pauli_coeffs'],
+                      'pauli_eigenvalues': stats_df_noiseless.loc[r]['grouped_pauli_eigenvalues']}
 
-        # compute bounds
-        bounds = GramianEigenvalueInterval(statistics=statistics, fidelity=true_fidelity)
+        # compute SDP expectation interval with grouping
+        bounds = SDPInterval(statistics=statistics, fidelity=true_fidelity)
         data += [bounds.lower_bound, bounds.upper_bound]
 
         plot_df_noiseless.loc[-1] = data
@@ -88,19 +108,21 @@ def lower_bounds_plots(results_dir_noisy, results_dir_noiseless, vqe_label, err_
     plot_df_noiseless = plot_df_noiseless[plot_df_noiseless.index >= xmin]
     dists_noiseless = plot_df_noiseless.index
 
-    # compute gramian eigenvalue intervals with noise
+    # compute intervals with noise
     for r in stats_df_noisy.index:
-        vqe_energy = np.mean(stats_df_noisy.loc[r]['expectation_values_hamiltonian'])
+        vqe_energy = np.mean(hamiltonian_stats_df_noisy.loc[r]['expectation_values_hamiltonian'])
         true_fidelity = stats_df_noisy.loc[r]['gs_fidelity']
 
         data = [r, stats_df_noisy.loc[r]['E0'], vqe_energy, true_fidelity]
 
         # stats to compute bounds
-        statistics = {'expectation_values': stats_df_noisy.loc[r]['expectation_values_hamiltonian'],
-                      'variances': stats_df_noisy.loc[r]['variances_hamiltonian']}
+        statistics = {'expectation_values': stats_df_noisy.loc[r]['grouped_pauli_expectations'],
+                      'pauli_strings': stats_df_noisy.loc[r]['grouped_pauli_strings'],
+                      'pauli_coeffs': stats_df_noisy.loc[r]['grouped_pauli_coeffs'],
+                      'pauli_eigenvalues': stats_df_noisy.loc[r]['grouped_pauli_eigenvalues']}
 
-        # compute bounds
-        bounds = GramianEigenvalueInterval(statistics=statistics, fidelity=true_fidelity)
+        # compute SDP expectation interval with grouping
+        bounds = SDPInterval(statistics=statistics, fidelity=true_fidelity)
         data += [bounds.lower_bound, bounds.upper_bound]
 
         plot_df_noisy.loc[-1] = data
@@ -130,16 +152,16 @@ def lower_bounds_plots(results_dir_noisy, results_dir_noiseless, vqe_label, err_
     # noiseless plot
     if len(dists_noiseless) > 0:
         ax1.plot(plot_df_noiseless.index, plot_df_noiseless['vqe_energy'], marker='o', markersize=3, lw=lw,
-                 color=vqe_color_noiseless, label=f'{vqe_label} w/o noise')
+                 color=vqe_color_noiseless, label=f'{vqe_label}')
         ax1.plot(plot_df_noiseless.index, plot_df_noiseless['lower_bounds'], marker='x', ls='--', markersize=3, lw=lw,
-                 color=vqe_color_noiseless, label='Lower Bound w/o noise')
+                 color=vqe_color_noiseless, label='Lower Bound')
 
     # noisy plot
     if len(dists_noisy) > 0:
         ax1.plot(plot_df_noisy.index, plot_df_noisy['vqe_energy'], marker='o', markersize=3, lw=lw,
-                 color=vqe_color_noisy, label=f'{vqe_label} w/ noise')
+                 color=vqe_color_noisy, label=f'{vqe_label} (noisy)')
         ax1.plot(plot_df_noisy.index, plot_df_noisy['lower_bounds'], marker='x', ls='--', markersize=3, lw=lw,
-                 color=vqe_color_noisy, label='Lower Bound w/ noise')
+                 color=vqe_color_noisy, label='Lower Bound (noisy)')
 
     ax1.set_xticks(xticks)
     ax1.xaxis.set_ticklabels([])
@@ -182,7 +204,7 @@ def lower_bounds_plots(results_dir_noisy, results_dir_noiseless, vqe_label, err_
 
     # legend
     handles, labels = ax1.get_legend_handles_labels()
-    ax1.legend(handles, labels, loc='best', ncol=1, fontsize=12, framealpha=0.75)
+    ax1.legend(handles, labels, loc='best', ncol=2, fontsize=12, framealpha=0.75)
 
     # add grid
     ax1.grid()
@@ -194,10 +216,10 @@ def lower_bounds_plots(results_dir_noisy, results_dir_noiseless, vqe_label, err_
     if save_as is None:
         plt.show()
     else:
-        if not os.path.exists('./plots'):
-            os.makedirs('./plots')
+        if not os.path.exists('figures/sdp_expectation_bounds'):
+            os.makedirs('figures/sdp_expectation_bounds')
 
-        save_as = os.path.join('./plots', save_as)
+        save_as = os.path.join('figures/sdp_expectation_bounds', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
 
 
@@ -207,25 +229,28 @@ def interval_plot(results_dir, vqe_label, save_as=None):
     here we make a plot with two subplots containing Energy + Interval / Ground State Fidelity
 
     """
-    stats_df = pd.read_pickle(os.path.join(results_dir, 'statistics.pkl'))
+    stats_df = pd.read_pickle(os.path.join(results_dir, 'pauli_statistics.pkl'))
+    hamiltonian_stats_df = pd.read_pickle(os.path.join(results_dir, 'hamiltonian_statistics.pkl'))
 
     plot_df = pd.DataFrame(
         columns=['r', 'exact', 'vqe_energy', 'fidelity', 'variance', 'lower_bounds', 'upper_bounds'])
 
     # compute gramian eigenvalue intervals
     for r in stats_df.index:
-        vqe_energy = np.mean(stats_df.loc[r]['expectation_values_hamiltonian'])
-        vqe_variance = np.mean(stats_df.loc[r]['variances_hamiltonian'])
+        vqe_energy = np.mean(hamiltonian_stats_df.loc[r]['expectation_values_hamiltonian'])
+        vqe_variance = np.mean(hamiltonian_stats_df.loc[r]['variances_hamiltonian'])
         true_fidelity = stats_df.loc[r]['gs_fidelity']
 
         data = [r, stats_df.loc[r]['E0'], vqe_energy, true_fidelity, vqe_variance]
 
         # stats to compute bounds
-        statistics = {'expectation_values': stats_df.loc[r]['expectation_values_hamiltonian'],
-                      'variances': stats_df.loc[r]['variances_hamiltonian']}
+        statistics = {'expectation_values': stats_df.loc[r]['grouped_pauli_expectations'],
+                      'pauli_strings': stats_df.loc[r]['grouped_pauli_strings'],
+                      'pauli_coeffs': stats_df.loc[r]['grouped_pauli_coeffs'],
+                      'pauli_eigenvalues': stats_df.loc[r]['grouped_pauli_eigenvalues']}
 
-        # compute bounds
-        bounds = GramianEigenvalueInterval(statistics=statistics, fidelity=true_fidelity)
+        # compute SDP expectation interval with grouping
+        bounds = SDPInterval(statistics=statistics, fidelity=true_fidelity)
         data += [bounds.lower_bound, bounds.upper_bound]
 
         plot_df.loc[-1] = data
@@ -275,38 +300,74 @@ def interval_plot(results_dir, vqe_label, save_as=None):
     if save_as is None:
         plt.show()
     else:
-        if not os.path.exists('./plots'):
-            os.makedirs('./plots')
+        if not os.path.exists('figures/sdp_expectation_bounds'):
+            os.makedirs('figures/sdp_expectation_bounds')
 
-        save_as = os.path.join('./plots', save_as)
+        save_as = os.path.join('figures/sdp_expectation_bounds', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
         pass
 
 
-# if __name__ == '__main__':
-    # # ---  LiH figures
-    # interval_plot('../../results2/lih/basis-set-free/hcb=False/upccgsd/noise=1/210706_190140', vqe_label='UpCCGSD',
-    #               save_as='interval_lih_upccgsd.pdf')
-    # interval_plot('../../results2/lih/basis-set-free/hcb=False/spa/noise=1/210706_185437', vqe_label='SPA',
-    #               save_as='interval_lih_spa.pdf')
-    #
-    # # SPA
-    # lower_bounds_plots('../../results2/lih/basis-set-free/hcb=False/spa/noise=1/210706_185437',
-    #                    '../../results2/lih/basis-set-free/hcb=False/spa/noise=0/210706_185138', 'SPA',
-    #                    err_step=0.025, fid_step=0.05, save_as='lih_spa_bounds.pdf')
-    #
-    # # UpCCGSD
-    # lower_bounds_plots('../../results2/lih/basis-set-free/hcb=False/upccgsd/noise=1/210706_190140',
-    #                    '../../results2/lih/basis-set-free/hcb=False/upccgsd/noise=0/210706_185204', 'UpCCGSD',
-    #                    err_step=0.1, fid_step=0.2, save_as='lih_upccgsd_bounds.pdf')
+if __name__ == '__main__':
+    # interval figures
+    interval_plot('../results/lih/basis-set-free/hcb=False/spa/noise=0/210716_162438',
+                  vqe_label='SPA',
+                  save_as='sdp_interval_lih_spa_no_noise.pdf')
+    interval_plot('../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
+                  vqe_label='SPA',
+                  save_as='sdp_interval_lih_spa_noisy.pdf')
+    interval_plot('../results/lih/basis-set-free/hcb=False/upccgsd/noise=0/210716_162453',
+                  vqe_label='UpCCGSD',
+                  save_as='sdp_interval_lih_upccgsd_no_noise.pdf')
+    interval_plot('../results/lih/basis-set-free/hcb=False/upccgsd/noise=1/210716_163429',
+                  vqe_label='UpCCGSD',
+                  save_as='sdp_interval_lih_upccgsd_noisy.pdf')
 
-    # --- BeH2 figures
-    # SPA
-    # lower_bounds_plots('../../results2/beh2/basis-set-free/hcb=False/spa/noise=1/210713_193035',
-    #                    '../../results2/beh2/basis-set-free/hcb=False/spa/noise=0/210706_193706', 'SPA',
-    #                    err_step=0.1, fid_step=0.25, save_as='beh2_spa_bounds.pdf')
+    interval_plot('../results/h2/basis-set-free/hcb=False/spa/noise=0/210716_162509',
+                  vqe_label='SPA',
+                  save_as='sdp_interval_h2_spa_no_noise.pdf')
+    interval_plot('../results/h2/basis-set-free/hcb=False/spa/noise=1/210716_170002',
+                  vqe_label='SPA',
+                  save_as='sdp_interval_h2_spa_noisy.pdf')
+    interval_plot('../results/h2/basis-set-free/hcb=False/upccgsd/noise=0/210716_162519',
+                  vqe_label='UpCCGSD',
+                  save_as='sdp_interval_h2_upccgsd_no_noise.pdf')
+    interval_plot('../results/h2/basis-set-free/hcb=False/upccgsd/noise=1/210716_170301',
+                  vqe_label='UpCCGSD',
+                  save_as='sdp_interval_h2_upccgsd_noisy.pdf')
 
-    # # UpCCGSD
-    # lower_bounds_plots('',
-    #                    '../../results2/beh2/basis-set-free/hcb=False/upccgsd/noise=0/210714_161456', 'UpCCGSD',
-    #                    err_step=0.1, fid_step=0.25, save_as=None)
+    interval_plot('../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
+                  vqe_label='SPA',
+                  save_as='sdp_interval_beh2_spa_no_noise.pdf')
+    # interval_plot('../results/beh2/basis-set-free/hcb=False/spa/noise=1/210716_171529',
+    #               vqe_label='SPA',
+    #               save_as='sdp_interval_beh2_spa_noisy.pdf')
+    interval_plot('../results/beh2/basis-set-free/hcb=False/upccgsd/noise=0/210716_171432',
+                  vqe_label='UpCCGSD',
+                  save_as='sdp_interval_beh2_spa_no_noise.pdf')
+
+    # lower bound plots
+    lower_bounds_plots(results_dir_noisy='../results/h2/basis-set-free/hcb=False/spa/noise=1/210716_170002',
+                       results_dir_noiseless='../results/h2/basis-set-free/hcb=False/spa/noise=0/210716_162509',
+                       vqe_label='SPA', xmin=0.0,
+                       err_step=0.04, fid_step=0.02, save_as='sdp_lower_bounds_h2_spa.pdf')
+
+    lower_bounds_plots(results_dir_noisy='../results/h2/basis-set-free/hcb=False/upccgsd/noise=1/210716_170301',
+                       results_dir_noiseless='../results/h2/basis-set-free/hcb=False/upccgsd/noise=0/210716_162519',
+                       vqe_label='UpCCGSD', xmin=0.0,
+                       err_step=0.1, fid_step=0.1, save_as='sdp_lower_bounds_h2_upccgsd.pdf')
+
+    lower_bounds_plots(results_dir_noisy='../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
+                       results_dir_noiseless='../results/lih/basis-set-free/hcb=False/spa/noise=0/210716_162438',
+                       vqe_label='SPA',
+                       err_step=0.1, fid_step=0.05, save_as='sdp_lower_bounds_lih_spa.pdf')
+
+    lower_bounds_plots(results_dir_noisy='../results/lih/basis-set-free/hcb=False/upccgsd/noise=1/210716_163429',
+                       results_dir_noiseless='../results/lih/basis-set-free/hcb=False/upccgsd/noise=0/210716_162453',
+                       vqe_label='UpCCGSD',
+                       err_step=0.1, fid_step=0.2, save_as='sdp_lower_bounds_lih_upccgsd.pdf')
+
+    lower_bounds_plots(results_dir_noisy='../results/beh2/basis-set-free/hcb=False/spa/noise=1/210716_171529',
+                       results_dir_noiseless='../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
+                       vqe_label='SPA',
+                       err_step=0.1, fid_step=0.2, save_as='sdp_lower_bounds_beh2_spa.pdf')

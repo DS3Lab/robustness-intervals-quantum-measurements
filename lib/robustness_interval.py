@@ -3,49 +3,24 @@ import numpy as np
 import scipy.stats as stats
 from typing import *
 
-supported_methods = ['sdp', 'gramian_expectation', 'gramian_eigval']
+EXPECTATION_INTERVAL_TYPES = ['expectation']
+EIGENVALUE_INTERVAL_TYPES = ['eigenvalue', 'eigenvalues', 'eigval', 'eigvals']
 
-columns = ["r", "expectation_values_hamiltonian", "variances_hamiltonian",
-           "grouped_pauli_strings", "grouped_pauli_coeffs", "grouped_pauli_expectations", "grouped_pauli_eigenvalues",
-           "pauli_strings", "pauli_coeffs", "pauli_expectations", "pauli_eigenvalues",
-           "E0", "E1", "gs_fidelity", "nreps", "samples"]
-
-
-def compute_interval(method: str,
-                     statistics: Dict[str, Union[List[List[float]], List[float], float]],
-                     fidelity: float, confidence_level: float = 1e-2, **kwargs):
-    method = method.lower()
-
-    if method not in ['sdp', 'gramian_expectation', 'gramian_eigval']:
-        raise ValueError(f'{method} interval not supported; param `kind` must be one of {supported_methods}')
-
-    if method == 'sdp':
-        return SDPInterval(statistics, fidelity, confidence_level, **kwargs)
-
-    if method == 'gramian_expectation':
-        return GramianExpectationBound(statistics, fidelity, confidence_level, **kwargs)
-
-    if method in ['gramian_eigval', 'eigval']:
-        return GramianEigenvalueInterval(statistics, fidelity, confidence_level, **kwargs)
-
-
-# def finite_sampling_error(num_terms, num_samples, confidence_level=1e-2):
-#     """
-#     returns finite sampling error delta based on Hoeffding such that num_terms independent random variables sampled
-#         num_samples times all have true expectation within empirical mean ± delta with probabilit at least
-#         1 - confidence_level.
-#     """
-#     return np.sqrt(-np.log(0.5 * (1.0 - (1.0 - confidence_level) ** (1.0 / num_terms))) / (2 * num_samples))
+ROBUSTNESS_INTERVAL_TYPES = EXPECTATION_INTERVAL_TYPES + EIGENVALUE_INTERVAL_TYPES
+ROBUSTNESS_INTERVAL_METHODS = ['sdp', 'gramian', 'gram']
 
 
 class RobustnessInterval(ABC):
     def __init__(self, statistics: Dict[str, Union[List[List[float]], List[float], float]], fidelity: float,
-                 confidence_level: float = 1e-2, *args, **kwargs):
-        self._expectations = statistics.get('expectation_values')
+                 normalization_const: Union[float, None], confidence_level):
+        # clean stats keys
+        statistics = {k.replace('_', '').replace(' ', ''): v for k, v in statistics.items()}
+
+        self._expectations = statistics.get('expectationvalues')
         self._variances = statistics.get('variances')
-        self._pauli_strings = statistics.get('pauli_strings')
-        self._pauli_coeffs = statistics.get('pauli_coeffs')
-        self._pauli_eigenvalues = statistics.get('pauli_eigenvalues')
+        self._pauli_strings = statistics.get('paulistrings')
+        self._pauli_coeffs = statistics.get('paulicoeffs')
+        self._pauli_eigenvalues = statistics.get('paulieigenvalues')
 
         self._fidelity = fidelity
         self._confidence_level = confidence_level
@@ -56,7 +31,7 @@ class RobustnessInterval(ABC):
         self._mean_expectation = None
         self._mean_variance = None
 
-        self._compute_interval(*args, **kwargs)
+        self._compute_interval(normalization_const=normalization_const)
 
     @abstractmethod
     def _compute_interval(self, *args, **kwargs):
@@ -93,7 +68,7 @@ class RobustnessInterval(ABC):
 
 class SDPInterval(RobustnessInterval):
 
-    def _compute_interval(self):
+    def _compute_interval(self, *args, **kwargs):
 
         bounds = np.array([self._compute_interval_single(
             self._pauli_strings, self._pauli_coeffs, self._pauli_eigenvalues, pauli_expecs)
@@ -167,10 +142,10 @@ class SDPInterval(RobustnessInterval):
 
 class GramianExpectationBound(RobustnessInterval):
 
-    def _compute_interval(self, normalization_constant):
-        lower_bounds = [normalization_constant + (
-                np.sqrt(self.fidelity) * (e - normalization_constant) - np.sqrt(1 - self.fidelity) * np.sqrt(
-            v)) ** 2 / (e - normalization_constant) for e, v in zip(self.expectations, self.variances)]
+    def _compute_interval(self, normalization_const, *args, **kwargs):
+        lower_bounds = [normalization_const + (
+                np.sqrt(self.fidelity) * (e - normalization_const) - np.sqrt(1 - self.fidelity) * np.sqrt(
+            v)) ** 2 / (e - normalization_const) for e, v in zip(self.expectations, self.variances)]
 
         n_reps = len(lower_bounds)
 
@@ -186,11 +161,11 @@ class GramianExpectationBound(RobustnessInterval):
 
 class GramianEigenvalueInterval(RobustnessInterval):
 
-    def _compute_interval(self):
+    def _compute_interval(self, *args, **kwargs):
 
         if self.fidelity <= 0:
-            self._lower_bound = np.nan
-            self._upper_bound = np.nan
+            self._lower_bound = -np.inf
+            self._upper_bound = np.inf
             return
 
         lower_bounds = [e - np.sqrt(v) * np.sqrt((1 - self.fidelity) / self.fidelity)
@@ -215,3 +190,58 @@ class GramianEigenvalueInterval(RobustnessInterval):
             upper_bound_variance = np.var(upper_bounds, ddof=1, dtype=np.float64)
             self._upper_bound = upper_bound_mean - np.sqrt(upper_bound_variance / n_reps) * stats.t.ppf(
                 q=1 - self._confidence_level, df=n_reps - 1)
+
+
+def compute_robustness_interval(method: str,
+                                kind: str,
+                                statistics: Dict[str, Union[List[List[float]], List[float], float]],
+                                fidelity: float,
+                                normalization_const: float = None,
+                                confidence_level: float = 1e-2) -> RobustnessInterval:
+    """
+    convenience function for calculation of robustness intervals
+
+    Args:
+        method: str, method used to compute robustness interval
+        kind: str, type of robustness interval
+        statistics: dict, must contain statistics required for the robustness interval computation.
+        fidelity: float, a lower bound to the fidelity with the target state
+        confidence_level: float, defaults to 1e-2; only relevant when statistics were sampled
+        normalization_const: float, required when kind is set to expectation and method is gramian; ensures that A ≥ 0
+
+    Returns:
+        RobustnessInterval
+    """
+    method = method.lower().replace('_', '').replace(' ', '')
+    kind = kind.lower().replace('_', '').replace(' ', '')
+
+    if kind not in ROBUSTNESS_INTERVAL_TYPES:
+        raise ValueError(
+            f'unknown robustness interval type; got {kind}, but kind must be one of {ROBUSTNESS_INTERVAL_TYPES} ')
+
+    if method not in ROBUSTNESS_INTERVAL_METHODS:
+        raise ValueError(f'unknown method; got {method}, but method must be one of {ROBUSTNESS_INTERVAL_METHODS}')
+
+    if kind in EXPECTATION_INTERVAL_TYPES:
+        if method == 'sdp':
+            return SDPInterval(statistics=statistics,
+                               fidelity=fidelity,
+                               normalization_const=None,
+                               confidence_level=confidence_level)
+
+        if method == 'gramian':
+            if normalization_const is None:
+                raise ValueError(f'normalization constant required when kind={kind} and method={method}')
+
+            return GramianExpectationBound(statistics=statistics,
+                                           fidelity=fidelity,
+                                           normalization_const=normalization_const,
+                                           confidence_level=confidence_level)
+
+        raise ValueError(f'unknown method {method} for robustness interval with kind={kind}')
+
+    if kind in EIGENVALUE_INTERVAL_TYPES:
+        return GramianEigenvalueInterval(statistics=statistics,
+                                         fidelity=fidelity,
+                                         normalization_const=None,
+                                         confidence_level=confidence_level)

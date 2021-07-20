@@ -8,7 +8,7 @@ import sys
 import numpy as np
 import time
 
-import tequila as tq  # noqa
+import tequila as tq
 
 from constants import DATA_DIR
 from lib.vqe import make_ansatz
@@ -19,8 +19,9 @@ from lib.noise_models import get_noise_model
 parser = argparse.ArgumentParser()
 parser.add_argument("--molecule", type=str, required=True, choices=['h2', 'lih', 'beh2'])
 parser.add_argument("--results_dir", type=str, required=True, help='dir from which to load results')
+parser.add_argument("--which", type=str, required=True, default='all', choices=['pauli', 'hamiltonian', 'all'])
 parser.add_argument("--samples", "-s", type=int, default=None)
-parser.add_argument("--reps", type=int, default=30)
+parser.add_argument("--reps", type=int, default=15)
 args = parser.parse_args()
 
 geom_strings = {
@@ -37,13 +38,14 @@ active_orbitals = {
 
 N_PNO = None
 
-columns = ["r", "expectation_values_hamiltonian", "variances_hamiltonian",
-           "grouped_pauli_strings", "grouped_pauli_coeffs", "grouped_pauli_expectations", "grouped_pauli_eigenvalues",
+columns = ["r", "expectation_values", "variances", "E0", "E1", "gs_fidelity",
+           "grouped_pauli_strings", "grouped_pauli_coeffs", "grouped_pauli_expectations",
+           "grouped_pauli_eigenvalues",
            "pauli_strings", "pauli_coeffs", "pauli_expectations", "pauli_eigenvalues",
-           "E0", "E1", "gs_fidelity", "nreps", "samples"]
+           "nreps", "samples"]
 
 
-def listener(q, df_save_path):
+def listener(q, df_save_path, which_stats):
     df = pd.DataFrame(columns=columns)
 
     while True:
@@ -52,55 +54,25 @@ def listener(q, df_save_path):
         if data == "kill":
             df.sort_values('r', inplace=True)
             df.set_index('r', inplace=True)
-            df.to_pickle(path=os.path.join(df_save_path, 'statistics.pkl'))
+
+            print('saving data as', os.path.join(df_save_path, f'{which_stats}_statistics.pkl'))
+            df.to_pickle(path=os.path.join(df_save_path, f'{which_stats}_statistics.pkl'))
             break
 
-        # add to df
-        df.loc[-1] = list(data.values())
-        df.index += 1
+        try:
+            df = df.append(data, ignore_index=True)
+        except Exception as e:
+            print('exception occured!', e)
+
         df.sort_index()
 
 
-def worker(r, ansatz, hamiltonian, backend, device, noise, samples, vqe_fn, nreps, q):
+def worker(r, ansatz, hamiltonian, backend, device, noise, samples, vqe_fn, nreps, which_stats, q):
     # load vqe
     with open(vqe_fn.format(r=r), 'rb') as f:
         vqe = pickle.load(f)
 
     print(f'start computing statistics for r={r}')
-
-    # compute expectations for entire Hamiltonian
-    objective = tq.ExpectationValue(U=ansatz, H=hamiltonian)
-    expectation_values = [tq.simulate(objective, variables=vqe.variables, samples=samples, backend=backend,
-                                      device=device, noise=noise) for _ in range(nreps)]
-
-    # compute variance
-    variances = [tq.simulate(tq.ExpectationValue(U=ansatz, H=(hamiltonian - e) ** 2),
-                             variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
-                 for e in expectation_values]
-
-    # compute pauli expectations w/ grouping
-    paulicliques = make_paulicliques(hamiltonian)
-    grouped_pauli_strings = [ps.naked() for ps in paulicliques]
-    grouped_pauli_coeffs = [ps.coeff.real for ps in paulicliques]
-    objectives = [tq.ExpectationValue(U=ansatz + p_str.U, H=p_str.H) for p_str in grouped_pauli_strings]
-    grouped_pauli_expectations = [[
-        tq.simulate(o, variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
-        for o in objectives
-    ] for _ in range(nreps)]
-    grouped_pauli_eigenvalues = [p_str.compute_eigenvalues() for p_str in grouped_pauli_strings]
-
-    # compute pauli expectations w/o grouping
-    pauli_strings = [ps.naked() for ps in hamiltonian.paulistrings]
-    pauli_coeffs = [ps.coeff.real for ps in hamiltonian.paulistrings]
-    objectives = [
-        tq.ExpectationValue(H=tq.QubitHamiltonian.from_paulistrings([p_str]), U=ansatz)
-        for p_str in pauli_strings
-    ]
-    pauli_expectations = [[
-        tq.simulate(o, variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
-        for o in objectives
-    ] for _ in range(nreps)]
-    pauli_eigenvalues = [(-1.0, 1.0) for _ in hamiltonian.paulistrings]
 
     # compute exact solution and spectral gap
     hamiltonian_matrix = hamiltonian.to_matrix()
@@ -112,32 +84,79 @@ def worker(r, ansatz, hamiltonian, backend, device, noise, samples, vqe_fn, nrep
     ground_state_fidelity = estimate_ground_state_fidelity(eigenvalues, eigenstates, ansatz, vqe.variables, backend,
                                                            device, noise, samples)
 
+    # compute stats
+    data_hamiltonian = {}
+    data_paulis = {}
+    if which_stats.lower() in ['hamiltonian', 'all']:
+        objective = tq.ExpectationValue(U=ansatz, H=hamiltonian)
+        expectation_values = [tq.simulate(objective, variables=vqe.variables, samples=samples, backend=backend,
+                                          device=device, noise=noise) for _ in range(nreps)]
+
+        # compute variance
+        variances = [tq.simulate(tq.ExpectationValue(U=ansatz, H=(hamiltonian - e) ** 2),
+                                 variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
+                     for e in expectation_values]
+
+        data_hamiltonian = {'r': r,
+                            'expectation_values_hamiltonian': expectation_values,
+                            'variances_hamiltonian': variances,
+                            'E0': lambda0,
+                            'E1': lambda1,
+                            'gs_fidelity': ground_state_fidelity,
+                            'nreps': nreps,
+                            'samples': samples}
+
+    if which_stats.lower() in ['pauli', 'all']:
+        # compute pauli expectations w/ grouping
+        paulicliques = make_paulicliques(hamiltonian)
+        grouped_pauli_strings = [ps.naked() for ps in paulicliques]
+        grouped_pauli_coeffs = [ps.coeff.real for ps in paulicliques]
+        objectives = [tq.ExpectationValue(U=ansatz + p_str.U, H=p_str.H) for p_str in grouped_pauli_strings]
+        grouped_pauli_expectations = [[
+            tq.simulate(o, variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
+            for o in objectives
+        ] for _ in range(nreps)]
+        grouped_pauli_eigenvalues = [p_str.compute_eigenvalues() for p_str in grouped_pauli_strings]
+
+        # compute pauli expectations w/o grouping
+        pauli_strings = [ps.naked() for ps in hamiltonian.paulistrings]
+        pauli_coeffs = [ps.coeff.real for ps in hamiltonian.paulistrings]
+        objectives = [
+            tq.ExpectationValue(H=tq.QubitHamiltonian.from_paulistrings([p_str]), U=ansatz)
+            for p_str in pauli_strings
+        ]
+        pauli_expectations = [[
+            tq.simulate(o, variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
+            for o in objectives
+        ] for _ in range(nreps)]
+        pauli_eigenvalues = [(-1.0, 1.0) for _ in hamiltonian.paulistrings]
+
+        data_paulis = {'r': r,
+                       'grouped_pauli_strings': grouped_pauli_strings,
+                       'grouped_pauli_coeffs': grouped_pauli_coeffs,
+                       'grouped_pauli_expectations': grouped_pauli_expectations,
+                       'grouped_pauli_eigenvalues': grouped_pauli_eigenvalues,
+                       'pauli_strings': pauli_strings,
+                       'pauli_coeffs': pauli_coeffs,
+                       'pauli_expectations': pauli_expectations,
+                       'pauli_eigenvalues': pauli_eigenvalues,
+                       'E0': lambda0,
+                       'E1': lambda1,
+                       'gs_fidelity': ground_state_fidelity,
+                       'nreps': nreps,
+                       'samples': samples}
+
     print(f'finished computing statistics for r={r}')
 
     # put data in queue
-    data = {'r': r,
-            'expectation_values_hamiltonian': expectation_values,
-            'variances_hamiltonian': variances,
-            'grouped_pauli_strings': grouped_pauli_strings,
-            'grouped_pauli_coeffs': grouped_pauli_coeffs,
-            'grouped_pauli_expectations': grouped_pauli_expectations,
-            'grouped_pauli_eigenvalues': grouped_pauli_eigenvalues,
-            'pauli_strings': pauli_strings,
-            'pauli_coeffs': pauli_coeffs,
-            'pauli_expectations': pauli_expectations,
-            'pauli_eigenvalues': pauli_eigenvalues,
-            'E0': lambda0,
-            'E1': lambda1,
-            'gs_fidelity': ground_state_fidelity,
-            'nreps': nreps,
-            'samples': samples}
+    data = {**data_paulis, **data_hamiltonian}
+    data.update({k: np.nan for k in columns if k not in data})
 
     q.put(data)
+    return
 
-    return data
 
-
-def main(results_dir, molecule_name, nreps, samples=None):
+def main(results_dir, molecule_name, nreps, which_stats, samples=None):
     with open(os.path.join(results_dir, 'args.pkl'), 'rb') as f:
         loaded_args = pickle.load(f)
 
@@ -184,7 +203,7 @@ def main(results_dir, molecule_name, nreps, samples=None):
     chemistry_data_dir = DATA_DIR + f'{molecule_name}' + '_{r}'
 
     # save terminal output to file
-    sys.stdout = Logger(print_fp=os.path.join(results_dir, 'intervals_out.txt'))
+    sys.stdout = Logger(print_fp=os.path.join(results_dir, f'{which_stats}_stats_out.txt'))
 
     # adjust to hcb
     transformation = 'JORDANWIGNER'
@@ -204,7 +223,6 @@ def main(results_dir, molecule_name, nreps, samples=None):
                                         basis_set=loaded_args.basis_set,
                                         transformation=transformation,
                                         n_pno=N_PNO)
-
         if molecule is None:
             continue
 
@@ -228,9 +246,9 @@ def main(results_dir, molecule_name, nreps, samples=None):
     pool = mp.Pool(num_processes)
 
     # put listener to work first
-    _ = pool.apply_async(listener, (q, results_dir))
+    _ = pool.apply_async(listener, (q, results_dir, which_stats))
 
-    # set nreps to 1 if no noise
+    # set nreps to 1 if no sampling
     if samples is None and nreps > 1:
         print('setting nreps to 1 since no sampling')
         nreps = 1
@@ -242,8 +260,8 @@ def main(results_dir, molecule_name, nreps, samples=None):
     # fire off workers
     jobs = []
     for r, ansatz, hamiltonian in zip(bond_distances_final, ansatzes, hamiltonians):
-        job = pool.apply_async(worker,
-                               (r, ansatz, hamiltonian, backend, device, noise, samples, vqe_result_fn, nreps, q))
+        job = pool.apply_async(
+            worker, (r, ansatz, hamiltonian, backend, device, noise, samples, vqe_result_fn, nreps, which_stats, q))
         jobs.append(job)
 
     # collect results
@@ -259,4 +277,4 @@ def main(results_dir, molecule_name, nreps, samples=None):
 
 
 if __name__ == '__main__':
-    main(args.results_dir, args.molecule, args.reps, args.samples)
+    main(args.results_dir, args.molecule, args.reps, args.which, args.samples)

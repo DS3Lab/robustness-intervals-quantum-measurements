@@ -4,10 +4,9 @@ import os
 import pandas as pd
 import sys
 from tabulate import tabulate
-import time
 
-from lib.robustness_interval import GramianEigenvalueInterval, GramianExpectationBound, SDPInterval
-from lib.helpers import timestamp_human, Logger
+from lib.robustness_interval import compute_robustness_interval
+from lib.helpers import Logger
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--results_dir", type=str, required=False, help='dir from which to load results')
@@ -15,16 +14,16 @@ args = parser.parse_args()
 
 columns = ["r", "vqe", "fci", "mp2", "ccsd",
            "E0", "E1", "spectral_gap", "true_fidelity", "variance",
-           "fidelity_eckart", "fidelity_mcclean", "ours_fidelity_bound",
+           "fidelity_eckart", "fidelity_mcclean", "new_fidelity_bound",
            "grouped_sdp_lower_bound", "grouped_sdp_upper_bound",
-           "singleterm_sdp_lower_bound", "singleterm_sdp_upper_bound",
+           "singleterms_sdp_lower_bound", "singleterms_sdp_upper_bound",
            "gram_exp_lower_bound", "gram_eigval_lower_bound",
            "gram_eigval_upper_bound"]
 
 
 def main(results_dir):
     # open df with stats
-    stats_df = pd.read_pickle(os.path.join(results_dir, 'statistics.pkl'))
+    stats_df = pd.read_pickle(os.path.join(results_dir, 'all_statistics.pkl'))
     energies_df = pd.read_pickle(os.path.join(results_dir, 'energies.pkl'))
 
     # setup df for intervals
@@ -37,34 +36,39 @@ def main(results_dir):
         fidelity = stats_df.loc[r]['gs_fidelity']
 
         # compute SDP expectation interval without grouping
-        sdp_bounds = SDPInterval(statistics={
-            'expectation_values': stats_df.loc[r]['pauli_expectations'],
-            'pauli_strings': stats_df.loc[r]['pauli_strings'],
-            'pauli_coeffs': stats_df.loc[r]['pauli_coeffs'],
-            'pauli_eigenvalues': stats_df.loc[r]['pauli_eigenvalues']},
-            fidelity=fidelity)
+        stats = {'expectation_values': stats_df.loc[r]['pauli_expectations'],
+                 'pauli_strings': stats_df.loc[r]['pauli_strings'],
+                 'pauli_coeffs': stats_df.loc[r]['pauli_coeffs'],
+                 'pauli_eigenvalues': stats_df.loc[r]['pauli_eigenvalues']}
+
+        sdp_bounds = compute_robustness_interval(method='sdp', kind='expectation', statistics=stats, fidelity=fidelity)
 
         # compute SDP expectation interval with grouping
-        sdp_bounds_grouped = SDPInterval(statistics={
-            'expectation_values': stats_df.loc[r]['grouped_pauli_expectations'],
-            'pauli_strings': stats_df.loc[r]['grouped_pauli_strings'],
-            'pauli_coeffs': stats_df.loc[r]['grouped_pauli_coeffs'],
-            'pauli_eigenvalues': stats_df.loc[r]['grouped_pauli_eigenvalues']},
-            fidelity=fidelity)
+        stats = {'expectation_values': stats_df.loc[r]['grouped_pauli_expectations'],
+                 'pauli_strings': stats_df.loc[r]['grouped_pauli_strings'],
+                 'pauli_coeffs': stats_df.loc[r]['grouped_pauli_coeffs'],
+                 'pauli_eigenvalues': stats_df.loc[r]['grouped_pauli_eigenvalues']}
+
+        sdp_bounds_grouped = compute_robustness_interval(method='sdp', kind='expectation', statistics=stats,
+                                                         fidelity=fidelity)
 
         # compute Gramian Expectation lower bound
         pauli_coeffs = stats_df.loc[r]['pauli_coeffs']
         normalization_constant = pauli_coeffs[0] - np.sum(np.abs(pauli_coeffs[1:]))
-        gramian_bound = GramianExpectationBound(statistics={
-            'expectation_values': stats_df.loc[r]['expectation_values_hamiltonian'],
-            'variances': stats_df.loc[r]['variances_hamiltonian']},
-            fidelity=fidelity, normalization_constant=normalization_constant)
+        stats = {'expectation_values': stats_df.loc[r]['expectation_values_hamiltonian'],
+                 'variances': stats_df.loc[r]['variances_hamiltonian']}
+
+        gramian_bound = compute_robustness_interval(method='gramian', kind='expectation', statistics=stats,
+                                                    fidelity=fidelity, normalization_const=normalization_constant)
 
         # compute Gramian Eigenvalue Interval
-        gramian_eigval_bounds = GramianEigenvalueInterval(statistics={
-            'expectation_values': stats_df.loc[r]['expectation_values_hamiltonian'],
-            'variances': stats_df.loc[r]['variances_hamiltonian']},
-            fidelity=fidelity)
+        stats = {'expectation_values': stats_df.loc[r]['expectation_values_hamiltonian'],
+                 'variances': stats_df.loc[r]['variances_hamiltonian']}
+
+        gramian_eigval_bounds = compute_robustness_interval(method='gramian', kind='eigenvalues', statistics=stats,
+                                                            fidelity=fidelity)
+
+        print(gramian_eigval_bounds.lower_bound)
 
         # fidelity bounds
         vqe_energy = np.mean(stats_df.loc[r]['expectation_values_hamiltonian'])
@@ -81,7 +85,8 @@ def main(results_dir):
         else:
             eckart_bound = mcclean_bound = fidelity_bound = 0
 
-        df.loc[-1] = [r, vqe_energy,
+        df.loc[-1] = [r,
+                      vqe_energy,
                       energies_df.loc[r]["fci"],
                       energies_df.loc[r]["mp2"],
                       energies_df.loc[r]["ccsd"],
@@ -111,5 +116,4 @@ def main(results_dir):
 
 
 if __name__ == '__main__':
-    main(args.results_dir)
-    # main("../results2/beh2/basis-set-free/hcb=False/spa/noise=1/210713_193035")
+    main('/Users/maurice/Desktop/dummy/h2/basis-set-free/hcb=False/spa/noise=0/210720_131901')

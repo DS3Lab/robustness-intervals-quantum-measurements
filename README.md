@@ -9,13 +9,13 @@ where `mol_name` is one of `h2, lih, beh2`, `ansatz_name` is one of `upccgsd, sp
 
 To compute expectations, variances, etc., run:
 ```
-python compute_stats.py --molecule <mol_name> --results_dir <path to results> --use_grouping <0 or 1>
+python compute_stats.py --molecule <mol_name> --results_dir <path to results>
 ```
 These statistics are saved to `results_dir/statistics.pkl`.
 
-After you ran `compute_stats.py`, you can calculate the robustness intervals with
+After you ran `compute_stats.py`, you can calculate all robustness intervals with
 ```
-python compute_intervals.py --results_dir <path to results> --use_grouping <0 or 1>
+python compute_all_intervals.py --results_dir <path to results>
 ```
-which uses the statistics stored in the `statistics.pkl` file.
+which uses the statistics stored in the `all_statistics.pkl` file.
 
