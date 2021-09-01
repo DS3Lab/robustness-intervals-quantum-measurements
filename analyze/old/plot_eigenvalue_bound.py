@@ -206,10 +206,10 @@ def plot_lower_bounds(results_dir_noisy, results_dir_noiseless, vqe_label, err_s
     if save_as is None:
         plt.show()
     else:
-        if not os.path.exists('figures/eigenval_bounds'):
-            os.makedirs('figures/eigenval_bounds')
+        if not os.path.exists('eigenval_bounds'):
+            os.makedirs('eigenval_bounds')
 
-        save_as = os.path.join('figures/eigenval_bounds', save_as)
+        save_as = os.path.join('eigenval_bounds', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
 
 
@@ -372,10 +372,10 @@ def plot_lower_bounds_different_fidelities(results_dir, vqe_label, fid_step, var
     if save_as is None:
         plt.show()
     else:
-        if not os.path.exists('figures/eigenval_fidelity_bounds'):
-            os.makedirs('figures/eigenval_fidelity_bounds')
+        if not os.path.exists('eigenval_fidelity_bounds'):
+            os.makedirs('eigenval_fidelity_bounds')
 
-        save_as = os.path.join('figures/eigenval_fidelity_bounds', save_as)
+        save_as = os.path.join('eigenval_fidelity_bounds', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
 
 
@@ -453,10 +453,10 @@ def interval_plot(results_dir, vqe_label, save_as=None):
     if save_as is None:
         plt.show()
     else:
-        if not os.path.exists('figures/eigenval_bounds'):
-            os.makedirs('figures/eigenval_bounds')
+        if not os.path.exists('eigenval_bounds'):
+            os.makedirs('eigenval_bounds')
 
-        save_as = os.path.join('figures/eigenval_bounds', save_as)
+        save_as = os.path.join('eigenval_bounds', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
         pass
 
@@ -642,10 +642,10 @@ def plot_lower_bounds_different_fidelities2(results_dir, vqe_label, fid_step, va
     if save_as is None:
         plt.show()
     else:
-        if not os.path.exists('figures/eigenval_fidelity_bounds'):
-            os.makedirs('figures/eigenval_fidelity_bounds')
+        if not os.path.exists('eigenval_fidelity_bounds'):
+            os.makedirs('eigenval_fidelity_bounds')
 
-        save_as = os.path.join('figures/eigenval_fidelity_bounds', save_as)
+        save_as = os.path.join('eigenval_fidelity_bounds', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
 
 
@@ -657,9 +657,9 @@ if __name__ == '__main__':
     # interval_plot('../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
     #               vqe_label='SPA',
     #               save_as='eigval_interval_lih_spa_noisy.pdf')
-    # interval_plot('../results/lih/basis-set-free/hcb=False/upccgsd/noise=0/210716_162453',
-    #               vqe_label='UpCCGSD',
-    #               save_as='eigval_interval_lih_upccgsd_no_noise.pdf')
+    interval_plot('../../results/lih/basis-set-free/hcb=False/upccgsd/noise=0/210716_162453',
+                  vqe_label='UpCCGSD')
+                  # save_as='eigval_interval_lih_upccgsd_no_noise.pdf')
     # interval_plot('../results/lih/basis-set-free/hcb=False/upccgsd/noise=1/210716_163429',
     #               vqe_label='UpCCGSD',
     #               save_as='eigval_interval_lih_upccgsd_noisy.pdf')
@@ -746,10 +746,10 @@ if __name__ == '__main__':
     # #     results_dir='../results/lih/basis-set-free/hcb=False/spa/noise=0/210716_162438',
     # #     vqe_label='SPA', fid_step=0.25, var_step=0.1, save_as='fidelity_eigval_lower_bounds_lih_spa_noiseless.pdf')
     #
-    plot_lower_bounds_different_fidelities(
-        results_dir='../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
-        vqe_label='SPA', fid_step=0.25, var_step=0.25, save_as='fidelity_eigval_lower_bounds_beh2_spa_noiseless.pdf')
-
+    # plot_lower_bounds_different_fidelities(
+    #     results_dir='../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
+    #     vqe_label='SPA', fid_step=0.25, var_step=0.25, save_as='fidelity_eigval_lower_bounds_beh2_spa_noiseless.pdf')
+    #
     # plot_lower_bounds_different_fidelities(
     #     results_dir='../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
     #     vqe_label='SPA', fid_step=0.25, var_step=0.1, save_as='eigval_lower_bounds_lih_spa_noisy.pdf')
@@ -766,7 +766,7 @@ if __name__ == '__main__':
     #     results_dir='../results/lih/basis-set-free/hcb=False/spa/noise=0/210716_162438',
     #     vqe_label='SPA', fid_step=0.25, var_step=0.1, save_as='fidelity_eigval_lower_bounds_lih_spa_noiseless2.pdf')
 
-    plot_lower_bounds_different_fidelities2(
-        results_dir='../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
-        vqe_label='SPA', fid_step=0.25,
-        var_step=0.1, save_as='fidelity_eigval_lower_bounds_beh2_spa_noiseless2.pdf')
+    # plot_lower_bounds_different_fidelities2(
+    #     results_dir='../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
+    #     vqe_label='SPA', fid_step=0.25,
+    #     var_step=0.1, save_as='fidelity_eigval_lower_bounds_beh2_spa_noiseless2.pdf')

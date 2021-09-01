@@ -19,9 +19,10 @@ from lib.noise_models import get_noise_model
 parser = argparse.ArgumentParser()
 parser.add_argument("--molecule", type=str, required=True, choices=['h2', 'lih', 'beh2'])
 parser.add_argument("--results_dir", type=str, required=True, help='dir from which to load results')
-parser.add_argument("--which", type=str, required=True, default='all', choices=['pauli', 'hamiltonian', 'all'])
+parser.add_argument("--which", type=str, required=True, default='all',
+                    choices=['pauli', 'paulicliques', 'hamiltonian', 'all'])
 parser.add_argument("--samples", "-s", type=int, default=None)
-parser.add_argument("--reps", type=int, default=15)
+parser.add_argument("--reps", type=int, default=20)
 args = parser.parse_args()
 
 geom_strings = {
@@ -38,17 +39,17 @@ active_orbitals = {
 
 N_PNO = None
 
-columns = ["r", "expectation_values", "variances", "E0", "E1", "gs_fidelity",
-           "grouped_pauli_strings", "grouped_pauli_coeffs", "grouped_pauli_expectations",
-           "grouped_pauli_eigenvalues",
+columns = ["r", "E0", "E1", "gs_fidelity",
+           "hamiltonian_expectations", "hamiltonian_variances",
            "pauli_strings", "pauli_coeffs", "pauli_expectations", "pauli_eigenvalues",
+           "paulicliques", "pauliclique_expectations", "pauliclique_variances", "pauliclique_eigenvalues",
            "nreps", "samples"]
 
 
 def listener(q, df_save_path, which_stats):
     df = pd.DataFrame(columns=columns)
 
-    while True:
+    while 1:
         data = q.get()
 
         if data == "kill":
@@ -77,79 +78,97 @@ def worker(r, ansatz, hamiltonian, backend, device, noise, samples, vqe_fn, nrep
     # compute exact solution and spectral gap
     hamiltonian_matrix = hamiltonian.to_matrix()
     eigenvalues, eigenstates = np.linalg.eigh(hamiltonian_matrix)
-    lambda0 = min(eigenvalues)  # ground state energy
-    lambda1 = min(eigenvalues[eigenvalues > lambda0])  # energy of first excited state
+    min_eigval = min(eigenvalues)  # ground state energy
+    second_eigval = min(eigenvalues[eigenvalues > min_eigval])  # energy of first excited state
 
     # compute ground state fidelity
     ground_state_fidelity = estimate_ground_state_fidelity(eigenvalues, eigenstates, ansatz, vqe.variables, backend,
                                                            device, noise, samples)
 
-    # compute stats
+    data_basic = {'r': r,
+                  'E0': min_eigval,
+                  'E1': second_eigval,
+                  'gs_fidelity': ground_state_fidelity,
+                  'nreps': nreps,
+                  'samples': samples}
+
+    # compute stats for hamiltonian
     data_hamiltonian = {}
-    data_paulis = {}
     if which_stats.lower() in ['hamiltonian', 'all']:
-        objective = tq.ExpectationValue(U=ansatz, H=hamiltonian)
-        expectation_values = [tq.simulate(objective, variables=vqe.variables, samples=samples, backend=backend,
-                                          device=device, noise=noise) for _ in range(nreps)]
+        hamiltonian_expectations, hamiltonian_variances = [], []
 
-        # compute variance
-        variances = [tq.simulate(tq.ExpectationValue(U=ansatz, H=(hamiltonian - e) ** 2),
-                                 variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
-                     for e in expectation_values]
+        for _ in range(nreps):
+            # compute expectation
+            e = tq.simulate(tq.ExpectationValue(U=ansatz, H=hamiltonian),  # noqa
+                            variables=vqe.variables, samples=samples, backend=backend, device=device,
+                            noise=noise)
 
-        data_hamiltonian = {'r': r,
-                            'expectation_values_hamiltonian': expectation_values,
-                            'variances_hamiltonian': variances,
-                            'E0': lambda0,
-                            'E1': lambda1,
-                            'gs_fidelity': ground_state_fidelity,
-                            'nreps': nreps,
-                            'samples': samples}
+            # compute variance
+            v = tq.simulate(tq.ExpectationValue(U=ansatz, H=(hamiltonian - e) ** 2),  # noqa
+                            variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
 
+            hamiltonian_expectations.append(e)
+            hamiltonian_variances.append(v)
+
+        data_hamiltonian = {'hamiltonian_expectations': hamiltonian_expectations,
+                            'hamiltonian_variances': hamiltonian_variances}
+
+    # compute stats for individual pauli terms
+    data_paulis = {}
     if which_stats.lower() in ['pauli', 'all']:
-        # compute pauli expectations w/ grouping
-        paulicliques = make_paulicliques(hamiltonian)
-        grouped_pauli_strings = [ps.naked() for ps in paulicliques]
-        grouped_pauli_coeffs = [ps.coeff.real for ps in paulicliques]
-        objectives = [tq.ExpectationValue(U=ansatz + p_str.U, H=p_str.H) for p_str in grouped_pauli_strings]
-        grouped_pauli_expectations = [[
-            tq.simulate(o, variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
-            for o in objectives
-        ] for _ in range(nreps)]
-        grouped_pauli_eigenvalues = [p_str.compute_eigenvalues() for p_str in grouped_pauli_strings]
-
-        # compute pauli expectations w/o grouping
         pauli_strings = [ps.naked() for ps in hamiltonian.paulistrings]
         pauli_coeffs = [ps.coeff.real for ps in hamiltonian.paulistrings]
-        objectives = [
-            tq.ExpectationValue(H=tq.QubitHamiltonian.from_paulistrings([p_str]), U=ansatz)
-            for p_str in pauli_strings
-        ]
-        pauli_expectations = [[
-            tq.simulate(o, variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
-            for o in objectives
-        ] for _ in range(nreps)]
+
+        pauli_expectations = []
+
+        for _ in range(nreps):
+            # compute expectations
+            e = [tq.simulate(tq.ExpectationValue(H=tq.QubitHamiltonian.from_paulistrings([p_str]), U=ansatz),  # noqa
+                             variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
+                 for p_str in pauli_strings]
+            pauli_expectations.append(e)
+
         pauli_eigenvalues = [(-1.0, 1.0) for _ in hamiltonian.paulistrings]
 
-        data_paulis = {'r': r,
-                       'grouped_pauli_strings': grouped_pauli_strings,
-                       'grouped_pauli_coeffs': grouped_pauli_coeffs,
-                       'grouped_pauli_expectations': grouped_pauli_expectations,
-                       'grouped_pauli_eigenvalues': grouped_pauli_eigenvalues,
-                       'pauli_strings': pauli_strings,
+        data_paulis = {'pauli_strings': pauli_strings,
                        'pauli_coeffs': pauli_coeffs,
                        'pauli_expectations': pauli_expectations,
-                       'pauli_eigenvalues': pauli_eigenvalues,
-                       'E0': lambda0,
-                       'E1': lambda1,
-                       'gs_fidelity': ground_state_fidelity,
-                       'nreps': nreps,
-                       'samples': samples}
+                       'pauli_eigenvalues': pauli_eigenvalues}
+
+    # compute stats for individual pauli terms and pauli cliques
+    data_paulicliques = {}
+    if which_stats.lower() in ['paulicliques', 'all']:
+        # compute pauli expectations w/ grouping
+        paulicliques = make_paulicliques(hamiltonian)
+        objectives = [tq.ExpectationValue(U=ansatz + clique.U, H=clique.H) for clique in paulicliques]
+
+        pauliclique_expectations, pauliclique_variances = [], []
+        for _ in range(nreps):
+            # compute expectations
+            ee = [tq.simulate(o, variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
+                  for o in objectives]
+
+            # compute variances
+            vv = [
+                tq.simulate(tq.ExpectationValue(U=ansatz + clique.U, H=(clique.H - e) ** 2),  # noqa
+                            variables=vqe.variables, samples=samples, backend=backend, device=device, noise=noise)
+                for clique, e in zip(paulicliques, ee)
+            ]
+
+            pauliclique_expectations.append(ee)
+            pauliclique_variances.append(vv)
+
+        pauliclique_eigenvalues = [clique.compute_eigenvalues() for clique in paulicliques]
+
+        data_paulicliques = {'paulicliques': paulicliques,
+                             'pauliclique_expectations': pauliclique_expectations,
+                             'pauliclique_variances': pauliclique_variances,
+                             'pauliclique_eigenvalues': pauliclique_eigenvalues}
 
     print(f'finished computing statistics for r={r}')
 
     # put data in queue
-    data = {**data_paulis, **data_hamiltonian}
+    data = {**data_basic, **data_hamiltonian, **data_paulis, **data_paulicliques}
     data.update({k: np.nan for k in columns if k not in data})
 
     q.put(data)

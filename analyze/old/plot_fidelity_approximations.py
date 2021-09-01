@@ -199,10 +199,10 @@ def plot_lower_bounds_different_fidelities(results_dir, vqe_label, fid_step, var
     if save_as is None:
         plt.show()
     else:
-        if not os.path.exists('figures/eigenval_fidelity_bounds'):
-            os.makedirs('figures/eigenval_fidelity_bounds')
+        if not os.path.exists('eigenval_fidelity_bounds'):
+            os.makedirs('eigenval_fidelity_bounds')
 
-        save_as = os.path.join('figures/eigenval_fidelity_bounds', save_as)
+        save_as = os.path.join('eigenval_fidelity_bounds', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
 
 
@@ -405,10 +405,10 @@ def plot_lower_bounds_different_fidelities2(results_dir, vqe_label, fid_step, va
     if save_as is None:
         plt.show()
     else:
-        if not os.path.exists('figures/eigenval_fidelity_bounds'):
-            os.makedirs('figures/eigenval_fidelity_bounds')
+        if not os.path.exists('eigenval_fidelity_bounds'):
+            os.makedirs('eigenval_fidelity_bounds')
 
-        save_as = os.path.join('figures/eigenval_fidelity_bounds', save_as)
+        save_as = os.path.join('eigenval_fidelity_bounds', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
 
 
@@ -475,7 +475,7 @@ if __name__ == '__main__':
     #     vqe_label='SPA', fid_step=0.05, var_step=0.1)
 
     plot_lower_bounds_different_fidelities2(
-        results_dir='../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
+        results_dir='../../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
         vqe_label='SPA', fid_step=0.05, var_step=0.1)
 
     #

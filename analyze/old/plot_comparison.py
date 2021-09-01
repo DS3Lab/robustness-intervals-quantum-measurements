@@ -152,10 +152,10 @@ def plot_bound_comparison(results_dir, vqe_label, fid_step, xmin=1.0, save_as=No
     fig.align_ylabels([ax1, ax2])
 
     if save_as is not None:
-        if not os.path.exists('figures/bound_comparison'):
-            os.makedirs('figures/bound_comparison')
+        if not os.path.exists('bound_comparison'):
+            os.makedirs('bound_comparison')
 
-        save_as = os.path.join('figures/bound_comparison', save_as)
+        save_as = os.path.join('bound_comparison', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
         return
 
@@ -164,43 +164,43 @@ def plot_bound_comparison(results_dir, vqe_label, fid_step, xmin=1.0, save_as=No
 
 if __name__ == '__main__':
     # noisy plots
-    plot_bound_comparison(results_dir='../results/h2/basis-set-free/hcb=False/spa/noise=1/210716_170002',
+    plot_bound_comparison(results_dir='../../results/h2/basis-set-free/hcb=False/spa/noise=1/210716_170002',
                           vqe_label='SPA', xmin=0.0, fid_step=0.01, save_as='h2_comparison_spa_noisy.pdf',
                           annotate_text=r'H$_2$', annotate_xy=(0.2, 0.95))
 
-    plot_bound_comparison(results_dir='../results/h2/basis-set-free/hcb=False/upccgsd/noise=1/210716_170301',
+    plot_bound_comparison(results_dir='../../results/h2/basis-set-free/hcb=False/upccgsd/noise=1/210716_170301',
                           vqe_label='UpCCGSD', xmin=0.0, fid_step=0.025, save_as='h2_comparison_upccgsd_noisy.pdf',
                           annotate_text=r'H$_2$', annotate_xy=(0.2, 0.95))
 
-    plot_bound_comparison(results_dir='../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
+    plot_bound_comparison(results_dir='../../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
                           vqe_label='SPA', fid_step=0.05, save_as='lih_comparison_spa_noisy.pdf',
                           annotate_text=r'LiH', annotate_xy=(0.2, 0.95))
 
-    plot_bound_comparison(results_dir='../results/lih/basis-set-free/hcb=False/upccgsd/noise=1/210716_163429',
+    plot_bound_comparison(results_dir='../../results/lih/basis-set-free/hcb=False/upccgsd/noise=1/210716_163429',
                           vqe_label='UpCCGSD', fid_step=0.05, save_as='lih_comparison_upccgsd_noisy.pdf',
                           annotate_text=r'LiH', annotate_xy=(0.2, 0.95))
 
-    plot_bound_comparison(results_dir='../results/beh2/basis-set-free/hcb=False/spa/noise=1/210716_171529',
+    plot_bound_comparison(results_dir='../../results/beh2/basis-set-free/hcb=False/spa/noise=1/210716_171529',
                           vqe_label='SPA', fid_step=0.2, save_as='beh2_comparison_spa_noisy.pdf',
                           annotate_text=r'BeH$_2$', annotate_xy=(0.75, 0.8))
 
     # noiseless plots
-    plot_bound_comparison(results_dir='../results/h2/basis-set-free/hcb=False/spa/noise=0/210716_162509',
+    plot_bound_comparison(results_dir='../../results/h2/basis-set-free/hcb=False/spa/noise=0/210716_162509',
                           vqe_label='SPA', xmin=0.0, fid_step=1e-7, save_as='h2_comparison_spa_no_noise.pdf',
                           annotate_text=r'H$_2$', annotate_xy=(0.8, 0.2))
 
-    plot_bound_comparison(results_dir='../results/h2/basis-set-free/hcb=False/upccgsd/noise=0/210716_162519',
+    plot_bound_comparison(results_dir='../../results/h2/basis-set-free/hcb=False/upccgsd/noise=0/210716_162519',
                           vqe_label='UpCCGSD', xmin=0.0, fid_step=5e-7, save_as='h2_comparison_upccgsd_no_noise.pdf',
                           annotate_text=r'H$_2$', annotate_xy=(0.8, 0.2))
 
-    plot_bound_comparison(results_dir='../results/lih/basis-set-free/hcb=False/spa/noise=0/210716_162438',
+    plot_bound_comparison(results_dir='../../results/lih/basis-set-free/hcb=False/spa/noise=0/210716_162438',
                           vqe_label='SPA', fid_step=0.05, save_as='lih_comparison_spa_no_noise.pdf',
                           annotate_text=r'LiH')
 
-    plot_bound_comparison(results_dir='../results/lih/basis-set-free/hcb=False/upccgsd/noise=0/210716_162453',
+    plot_bound_comparison(results_dir='../../results/lih/basis-set-free/hcb=False/upccgsd/noise=0/210716_162453',
                           vqe_label='UpCCGSD', fid_step=5e-7, save_as='lih_comparison_upccgsd_no_noise.pdf',
                           annotate_text=r'LiH')
 
-    plot_bound_comparison(results_dir='../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
+    plot_bound_comparison(results_dir='../../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
                           vqe_label='SPA', fid_step=0.2, save_as='beh2_comparison_spa_no_noise.pdf',
                           annotate_text=r'BeH$_2$', annotate_xy=(0.1, 0.7))

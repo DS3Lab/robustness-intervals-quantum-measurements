@@ -218,36 +218,36 @@ def lower_bounds_plots(results_dir_noisy, results_dir_noiseless, vqe_label, err_
     if save_as is None:
         plt.show()
     else:
-        if not os.path.exists('figures/gram_expectation_bounds'):
-            os.makedirs('figures/gram_expectation_bounds')
+        if not os.path.exists('gram_expectation_bounds'):
+            os.makedirs('gram_expectation_bounds')
 
-        save_as = os.path.join('figures/gram_expectation_bounds', save_as)
+        save_as = os.path.join('gram_expectation_bounds', save_as)
         plt.savefig(save_as, dpi=250, bbox_inches='tight', pad_inches=0.1)
 
 
 if __name__ == '__main__':
     # lower bound plots
-    lower_bounds_plots(results_dir_noisy='../results/h2/basis-set-free/hcb=False/spa/noise=1/210716_170002',
-                       results_dir_noiseless='../results/h2/basis-set-free/hcb=False/spa/noise=0/210716_162509',
+    lower_bounds_plots(results_dir_noisy='../../results/h2/basis-set-free/hcb=False/spa/noise=1/210716_170002',
+                       results_dir_noiseless='../../results/h2/basis-set-free/hcb=False/spa/noise=0/210716_162509',
                        vqe_label='SPA', xmin=0.0,
                        err_step=0.04, fid_step=0.02, save_as='sdp_lower_bounds_h2_spa.pdf')
 
-    lower_bounds_plots(results_dir_noisy='../results/h2/basis-set-free/hcb=False/upccgsd/noise=1/210716_170301',
-                       results_dir_noiseless='../results/h2/basis-set-free/hcb=False/upccgsd/noise=0/210716_162519',
+    lower_bounds_plots(results_dir_noisy='../../results/h2/basis-set-free/hcb=False/upccgsd/noise=1/210716_170301',
+                       results_dir_noiseless='../../results/h2/basis-set-free/hcb=False/upccgsd/noise=0/210716_162519',
                        vqe_label='UpCCGSD', xmin=0.0,
                        err_step=0.1, fid_step=0.1, save_as='sdp_lower_bounds_h2_upccgsd.pdf')
 
-    lower_bounds_plots(results_dir_noisy='../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
-                       results_dir_noiseless='../results/lih/basis-set-free/hcb=False/spa/noise=0/210716_162438',
+    lower_bounds_plots(results_dir_noisy='../../results/lih/basis-set-free/hcb=False/spa/noise=1/210716_162531',
+                       results_dir_noiseless='../../results/lih/basis-set-free/hcb=False/spa/noise=0/210716_162438',
                        vqe_label='SPA',
                        err_step=0.05, fid_step=0.05, save_as='sdp_lower_bounds_lih_spa.pdf')
 
-    lower_bounds_plots(results_dir_noisy='../results/lih/basis-set-free/hcb=False/upccgsd/noise=1/210716_163429',
-                       results_dir_noiseless='../results/lih/basis-set-free/hcb=False/upccgsd/noise=0/210716_162453',
+    lower_bounds_plots(results_dir_noisy='../../results/lih/basis-set-free/hcb=False/upccgsd/noise=1/210716_163429',
+                       results_dir_noiseless='../../results/lih/basis-set-free/hcb=False/upccgsd/noise=0/210716_162453',
                        vqe_label='UpCCGSD',
                        err_step=0.1, fid_step=0.2, save_as='sdp_lower_bounds_lih_upccgsd.pdf')
 
-    lower_bounds_plots(results_dir_noisy='../results/beh2/basis-set-free/hcb=False/spa/noise=1/210716_171529',
-                       results_dir_noiseless='../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
+    lower_bounds_plots(results_dir_noisy='../../results/beh2/basis-set-free/hcb=False/spa/noise=1/210716_171529',
+                       results_dir_noiseless='../../results/beh2/basis-set-free/hcb=False/spa/noise=0/210716_171413',
                        vqe_label='SPA',
                        err_step=0.1, fid_step=0.2, save_as='sdp_lower_bounds_beh2_spa.pdf')

@@ -17,7 +17,7 @@ columns = ["r", "vqe", "fci", "mp2", "ccsd",
            "fidelity_eckart", "fidelity_mcclean", "new_fidelity_bound",
            "grouped_sdp_lower_bound", "grouped_sdp_upper_bound",
            "singleterms_sdp_lower_bound", "singleterms_sdp_upper_bound",
-           "gram_exp_lower_bound", "gram_eigval_lower_bound",
+           "gram_exp_lower_bound_vanilla", "gram_exp_lower_bound_cliques", "gram_eigval_lower_bound",
            "gram_eigval_upper_bound"]
 
 
@@ -116,4 +116,4 @@ def main(results_dir):
 
 
 if __name__ == '__main__':
-    main('/Users/maurice/Desktop/dummy/h2/basis-set-free/hcb=False/spa/noise=0/210720_131901')
+    raise NotImplementedError

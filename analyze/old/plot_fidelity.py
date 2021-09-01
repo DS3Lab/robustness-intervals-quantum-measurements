@@ -130,9 +130,9 @@ def main(results_dir, molecule, save_as=None):
 
 
 if __name__ == '__main__':
-    main('../../results2/lih/basis-set-free/hcb=False/spa/noise=0/210706_185138', molecule='LiH',
+    main('../../../results2/lih/basis-set-free/hcb=False/spa/noise=0/210706_185138', molecule='LiH',
          save_as='fidelity_lih_spa.pdf')
-    main('../../results2/beh2/basis-set-free/hcb=False/spa/noise=0/210706_193706', molecule='BeH$_2$',
+    main('../../../results2/beh2/basis-set-free/hcb=False/spa/noise=0/210706_193706', molecule='BeH$_2$',
          save_as='fidelity_beh2_spa.pdf')
 
     # main('../../results2/lih/basis-set-free/hcb=False/upccgsd/noise=0/210706_185204', molecule='LiH')
