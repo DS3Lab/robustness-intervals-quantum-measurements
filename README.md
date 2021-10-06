@@ -4,7 +4,9 @@ This repo contains the code for the paper _"Toward Reliability in the NISQ Era: 
 Measurements on Approximate States"_ [1]. A tutorial the shows how to use the implementation of robustness intervals in
 Tequila is available [here](XXXXXX).
 
-<img width="33%" src="analyze/resources/lih_gramian_interval.pdf">
+<p align="center">
+  <img width="50%" src="analyze/resources/lih_gramian_interval.png">
+</p>
 
 ## Requirements
 
@@ -60,7 +62,9 @@ For the above example, this results in the following table:
 
 The script `./analyze/make_figure_gramian_eigenvalue_bound.py` can be used to generate the corresponding figure:
 
-<img width="33%" src="analyze/resources/h2_noisy_spa.pdf">
+<p align="center">
+  <img width="50%" src="analyze/resources/h2_noisy_spa.png">
+</p>
 
 ## References
 
