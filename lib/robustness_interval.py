@@ -123,7 +123,6 @@ class SDPInterval(RobustnessInterval):
                  device=None,
                  noise=None,
                  group_terms=True):
-
         super(SDPInterval, self).__init__(fidelity, U, H, precomputed_stats)
 
         self._compute_stats(variables, samples, backend, device, noise, group_terms)
@@ -183,7 +182,6 @@ class SDPInterval(RobustnessInterval):
 
         for p_str, p_coeff, p_eigvals, p_expec in zip(self._pauligroups, self._pauligroups_coeffs,
                                                       self._pauligroups_eigenvalues, self._pauligroups_expectations):
-
             min_eigval = min(p_eigvals)
             max_eigval = max(p_eigvals)
 
@@ -505,7 +503,6 @@ def robustness_interval(U: QCircuit,
         return interval.interval, (interval if return_object else None)
 
     if method in _GRAMIAN_ALIASES:
-
         if kind in _EXPECTATION_ALIASES:
             interval = GramianExpectationBound(U=U, H=H, fidelity=fidelity, variables=variables, backend=backend,
                                                noise=noise, device=device, samples=samples, group_terms=group_terms)

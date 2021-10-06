@@ -4,6 +4,4 @@ __pycache__/
  *.pyc
 *.dat
 .ipynb_checkpoints/
-data/
-analyze/final-figures
 results/

@@ -62,14 +62,14 @@ def main(results_dir, nreps, which_stats, samples=None):
     molecule_initializer = get_molecule_initializer(geometry=geom_strings[molecule_name],
                                                     active_orbitals=active_orbitals[molecule_name])
 
-    noise = get_noise_model(1e-2, noise_type={0: None, 1: 'bitflip-depol'}[loaded_args.noise])
+    noise = get_noise_model(1e-2, noise_type=loaded_args.noise)
 
-    if loaded_args.noise is None or loaded_args.noise == 0:
+    if loaded_args.noise is None:
         backend = 'qulacs'
         device = None
         samples = None
         loaded_args.error_rate = 0
-    elif loaded_args.noise == 'bitflip-depol' or loaded_args.noise == 1:
+    elif loaded_args.noise == 'bitflip-depol':
         backend = loaded_args.backend
         samples = loaded_args.samples
         device = None

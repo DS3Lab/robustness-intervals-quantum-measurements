@@ -11,10 +11,10 @@ GRAMIAN_EXPECTATION_METHOD = 'gramian-expectation'
 SDP_METHOD = 'sdp'
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--results-dir", type=str, required=False, default=res, help='dir from which to load results')
+parser.add_argument("--results-dir", type=str, required=False, help='dir from which to load results')
 parser.add_argument("--method", type=str, required=False, default=SDP_METHOD,
                     choices=['all', GRAMIAN_EIGVAL_METHOD, GRAMIAN_EXPECTATION_METHOD, SDP_METHOD])
-parser.add_argument("--partition", type=str, required=False, default=CLIQUE_PARTITION,
+parser.add_argument("--partition", type=str, required=False, default=NO_PARTITION,
                     choices=[CLIQUE_PARTITION, PAULI_PARTITION, NO_PARTITION])
 parser.add_argument("--confidence", type=float, default=1e-2)
 args = parser.parse_args()
@@ -87,7 +87,7 @@ def get_stats_df(results_dir: str, partition: str) -> pd.DataFrame:
         return df
 
     if partition == NO_PARTITION:
-        stats_file = os.path.join(results_dir, 'hmailtonian_statistics.pkl')
+        stats_file = os.path.join(results_dir, 'hamiltonian_statistics.pkl')
 
         if not os.path.isfile(stats_file):
             raise FileNotFoundError(f"file {stats_file} with hamiltonian statistics not found!")
