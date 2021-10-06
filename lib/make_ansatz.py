@@ -1,4 +1,7 @@
-def make_ansatz(molecule, name):
+import tequila as tq
+
+
+def make_ansatz(molecule: tq.Molecule, name: str):
     name = name.lower()
 
     if name == 'upccgsd':
@@ -18,7 +21,3 @@ def make_ansatz(molecule, name):
         return ansatz
 
     raise NotImplementedError(f'Ansatz {name} not known')
-
-
-def init_vqe_from_file():
-    pass
