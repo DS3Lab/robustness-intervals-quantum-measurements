@@ -1,4 +1,4 @@
-# Robust Intervals for Expectation Values
+# Toward Reliability in the NISQ Era: Robust Interval Guarantee for Quantum Measurements on Approximate States
 
 This repo contains the code for the paper _"Toward Reliability in the NISQ Era:  Robust Interval Guarantee for Quantum
 Measurements on Approximate States"_ [1]. A tutorial the shows how to use the implementation of robustness intervals in
