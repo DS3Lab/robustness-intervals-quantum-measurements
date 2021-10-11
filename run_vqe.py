@@ -82,6 +82,7 @@ def main():
     # build dir structure
     save_dir = os.path.join(args.results_dir, f"./{molecule_name}/")
     save_dir = os.path.join(save_dir, f"{'basis-set-free' if args.basis_set is None else args.basis_set}/")
+    save_dir = os.path.join(save_dir, f"{ansatz_name}/")
     save_dir = os.path.join(save_dir, f"noise={args.noise if device is None else device}_error-rate={args.error_rate}/")
     save_dir = os.path.join(save_dir, f"{timestamp_human()}/".replace(':', '-').replace(' ', '_'))
 

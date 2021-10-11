@@ -28,7 +28,7 @@ SDP_COLOR = COLORS[3]
 
 GRAM_EIGVAL_KWARGS = dict(linestyle='--', marker='o', markersize=3, markerfacecolor='none', lw=LINEWIDTH,
                           color=GRAMIAN_EIGVAL_COLOR)
-GRAM_EXPEC_KWARGS = dict(linestyle='--', marker='o', markersize=3, markerfacecolor='none', lw=LINEWIDTH,
+GRAM_EXPEC_KWARGS = dict(linestyle='-.', marker='^', markersize=3, markerfacecolor='none', lw=LINEWIDTH,
                          color=GRAMIAN_EXPECTATION_COLOR)
-SDP_KWARGS = dict(linestyle='--', marker='o', markersize=3, markerfacecolor='none', lw=LINEWIDTH, color=SDP_COLOR)
-VQE_LINE_KWARGS = dict(linestyle='-', marker='o', markersize=3, markerfacecolor='none', lw=LINEWIDTH, color=VQE_COLOR)
+SDP_KWARGS = dict(linestyle=':', marker='d', markerfacecolor='none', markersize=3, lw=LINEWIDTH, color=SDP_COLOR)
+VQE_LINE_KWARGS = dict(linestyle='-', marker='o', markerfacecolor='none', markersize=3, lw=LINEWIDTH, color=VQE_COLOR)

@@ -62,7 +62,7 @@ def main(results_dir, nreps, which_stats, samples=None):
     molecule_initializer = get_molecule_initializer(geometry=geom_strings[molecule_name],
                                                     active_orbitals=active_orbitals[molecule_name])
 
-    noise = get_noise_model(1e-2, noise_type=loaded_args.noise)
+    noise = get_noise_model(error_rate=loaded_args.error_rate, noise_type=loaded_args.noise)
 
     if loaded_args.noise is None:
         backend = 'qulacs'
