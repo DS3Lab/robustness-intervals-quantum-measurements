@@ -1,8 +1,7 @@
 # Toward Reliability in the NISQ Era: Robust Interval Guarantee for Quantum Measurements on Approximate States
 
-This repo contains the code for the paper _"Toward Reliability in the NISQ Era:  Robust Interval Guarantee for Quantum
-Measurements on Approximate States"_ [1]. A tutorial the shows how to use the implementation of robustness intervals in
-Tequila is available [here](XXXXXX).
+This repo contains the code for the paper [_"Toward Reliability in the NISQ Era:  Robust Interval Guarantee for Quantum
+Measurements on Approximate States"_](https://arxiv.org/abs/2110.09793) [1].
 
 <p align="center">
   <img width="50%" src="analyze/resources/lih_gramian_interval.png">
@@ -69,15 +68,15 @@ The script `./analyze/make_figure_gramian_eigenvalue_bound.py` can be used to ge
 ## References
 
 [1] Maurice Weber, Abhinav Anand, Alba Cervera-Lierta, Jakob S. Kottmann, Thi Ha Kyaw, Bo Li, Alán Aspuru-Guzik, Ce
-Zhang and Zhikuan Zhao. _"Toward Reliability in the NISQ Era:  Robust Interval Guarantee for Quantum Measurements on
-Approximate States"_, arXiv:2110:XXXXXX (2021).
+Zhang and Zhikuan Zhao. [_"Toward Reliability in the NISQ Era:  Robust Interval Guarantee for Quantum Measurements on
+Approximate States"_](https://arxiv.org/abs/2110.09793), arXiv:2110.09793 (2021).
 
-[2] Jakob S. Kottmann, Alán Aspuru-Guzik. _"Optimized Low-Depth Quantum Circuits for Molecular Electronic Structure
-using a Separable Pair Approximation"_, arXiv:2105.03836 (2021).
+[2] Jakob S. Kottmann, Alán Aspuru-Guzik. [_"Optimized Low-Depth Quantum Circuits for Molecular Electronic Structure
+using a Separable Pair Approximation"_](https://arxiv.org/abs/2105.03836), arXiv:2105.03836 (2021).
 
-[3] Jakob S. Kottmann, Philipp Schleich, Teresa Tamayo-Mendoza, and Alán Aspuru-Guzik. _"Reducing Qubit Requirements
-while Maintaining Numerical Precision for the Variational Quantum Eigensolver: A Basis-Set-Free Approach"_, J. Phys.
+[3] Jakob S. Kottmann, Philipp Schleich, Teresa Tamayo-Mendoza, and Alán Aspuru-Guzik. [_"Reducing Qubit Requirements
+while Maintaining Numerical Precision for the Variational Quantum Eigensolver: A Basis-Set-Free Approach"_](https://pubs.acs.org/doi/10.1021/acs.jpclett.0c03410), J. Phys.
 Chem. Lett.12, 663 (2021).
 
-[4] Jakob S. Kottmann, Florian A. Bischoff, and Edward F. Valeev. _"Direct determination of optimal pair-natural
-orbitals in a real-space representation: The second-order Moller–Plesset energy"_, J. Chem. Phys. 152, 074105 (2020).
+[4] Jakob S. Kottmann, Florian A. Bischoff, and Edward F. Valeev. [_"Direct determination of optimal pair-natural
+orbitals in a real-space representation: The second-order Moller–Plesset energy"_](https://aip.scitation.org/doi/abs/10.1063/1.5141880?journalCode=jcp), J. Chem. Phys. 152, 074105 (2020).
