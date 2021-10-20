@@ -1,7 +1,7 @@
 # Toward Reliability in the NISQ Era: Robust Interval Guarantee for Quantum Measurements on Approximate States
 
 This repo contains the code for the paper [_"Toward Reliability in the NISQ Era:  Robust Interval Guarantee for Quantum
-Measurements on Approximate States"_](https://arxiv.org/abs/2110.09793) [1].
+Measurements on Approximate States"_](https://arxiv.org/abs/2110.09793) [1]. A tutorial that explains the implementation in Tequila is available [here](https://github.com/aspuru-guzik-group/tequila-tutorials/blob/main/robustness_tutorial.ipynb).
 
 <p align="center">
   <img width="50%" src="analyze/resources/lih_gramian_interval.png">
